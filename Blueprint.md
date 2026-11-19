@@ -103,7 +103,7 @@ KDT-Inventory_3500/
 │        ├─ UserManagerModal.tsx      (사용자 및 입출고 권한 ALL/IN_ONLY/OUT_ONLY 관리)
 │        ├─ DataMigrationModal.tsx    (DB 백업/복원 모달)
 │        ├─ InventoryReport.tsx       (재고 현황 보고서)
-│        ├─ MonthlyReportModal.tsx    (월말 날짜 경계 보정·대분류당 40슬롯/A3 세로 1페이지 보고서)
+│        ├─ MonthlyReportModal.tsx    (월말 날짜 경계 보정·대분류당 40슬롯/A3 세로 미리보기·인쇄)
 │        ├─ MonthlyUsageReportModal.tsx (연간 사용현황 보고서)
 │        ├─ ReportModal.tsx
 │        ├─ ConfirmationModal.tsx
@@ -147,7 +147,7 @@ KDT-Inventory_3500/
 | `TransactionModal.tsx` | 로그인 사용자 `txPermission`에 따라 입고 또는 출고 탭/버튼 비활성화 (Phase 3 반영) |
 | `InventoryList` | Rule 5(1,000라인 초과 폴더 분리) 준수 리팩토링 완료. 대분류별 40개 고정 슬롯(미등록 품목용 빈 슬롯 포함), 기준정보 ZONE명 동기화, 인쇄 배율 40% 적용 |
 | `KDT template.xlsx` & Import/Export | 요약 시트 + ZONE별 40슬롯 일자별 수불부 양방향 동기화. 미사용 슬롯 품명 초기화, 템플릿 날짜별 샘플 입출고값 비복제, 초기 입고 데이터 적재 지원 |
-| `MonthlyReportModal` | 로컬 달력 기준 월 선택 및 `[월초, 다음 달 1일)` 경계 적용(월말 포함). 대분류마다 40행을 고정하고 A3 세로 1페이지씩 출력 (현재 2개 대분류 = 2페이지) |
+| `MonthlyReportModal` | 로컬 달력 기준 월 선택 및 `[월초, 다음 달 1일)` 경계 적용(월말 포함). 화면 미리보기와 인쇄를 A3 세로로 통일하고 대분류마다 40행을 1페이지씩 출력 (현재 2개 대분류 = 2페이지) |
 
 ---
 
@@ -165,6 +165,6 @@ KDT-Inventory_3500/
 ## 6. 향후 개발 일정 (Roadmap)
 
 - **Phase 1~4 (Ver 1.0.0~1.3.2)**: 기반 이식, 권한·UI·데이터 시드, 서울 리전 배포 및 운영 검증, KDT 용어·매뉴얼 정비 완료
-- **Excel/월별 보고서 (Ver 1.3.4~1.3.8)**: 대분류 양방향 동기화, 40슬롯 고정, 빈 슬롯 이력 오등록 방지, Excel 인쇄 40%, 월별 보고서 대분류별 40행·A3 세로 1페이지 및 월말 경계 보정 완료
-- **클린빌드/배포**: Ver 1.3.8 타입검사 및 프로덕션 빌드 완료; Firebase 배포는 대기
+- **Excel/월별 보고서 (Ver 1.3.4~1.3.9)**: 대분류 양방향 동기화, 40슬롯 고정, 빈 슬롯 이력 오등록 방지, Excel 인쇄 40%, 월별 보고서 대분류별 40행·A3 세로 미리보기/인쇄 및 월말 경계 보정 완료
+- **클린빌드/배포**: Ver 1.3.9 타입검사 및 프로덕션 빌드 완료; Firebase 배포는 대기
 - **2차 과제 (Ver 2.0.0)**: ZONE 목표 생산수량 × `qtyPerProduct` 기반 필요/부족 자재 자동 산출

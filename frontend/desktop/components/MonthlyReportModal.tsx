@@ -15,12 +15,18 @@ interface MonthlyReportModalProps {
 }
 
 const SLOTS_PER_CATEGORY = 40;
+const A3_PAGE_WIDTH_PX = 297 * 96 / 25.4;
+const A3_PAGE_HEIGHT_PX = 420 * 96 / 25.4;
 const monthlyReportPageStyle = `
   @page monthly-report {
     size: A3 portrait;
     margin: 10mm;
   }
   @media print {
+    .monthly-report-preview-sheet {
+      display: contents !important;
+      zoom: 1 !important;
+    }
     .print-page.monthly-report-print-page {
       page: monthly-report;
       width: 277mm !important;
@@ -40,11 +46,29 @@ const getCurrentLocalMonth = (): string => {
 
 const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transactions, masterData, onClose, columnWidths = {} }) => {
   const [selectedMonth, setSelectedMonth] = useState(getCurrentLocalMonth); // YYYY-MM in local time
+  const [previewScale, setPreviewScale] = useState(0.5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
   const [filterActiveOnly, setFilterActiveOnly] = useState(false); // [NEW] 입출고 있는 항목만 필터
   const contentRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const updatePreviewScale = () => {
+      const availableWidth = Math.max(0, window.innerWidth - 32);
+      const availableHeight = Math.max(0, window.innerHeight - 180);
+      const scale = Math.min(
+        1,
+        availableWidth / A3_PAGE_WIDTH_PX,
+        availableHeight / A3_PAGE_HEIGHT_PX
+      );
+      setPreviewScale(Math.max(0.1, scale));
+    };
+
+    updatePreviewScale();
+    window.addEventListener('resize', updatePreviewScale);
+    return () => window.removeEventListener('resize', updatePreviewScale);
+  }, []);
 
   useEffect(() => {
     let fields = DEFAULT_DB_FIELDS;
@@ -296,14 +320,34 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
       </div>
 
       {/* Pages Container */}
-      <div ref={contentRef} className="flex flex-col gap-8 my-12 items-center print:block print:w-full print:m-0 print:p-0">
+      <div
+        ref={contentRef}
+        className="flex flex-col my-12 items-center print:block print:w-full print:m-0 print:p-0"
+        style={{ gap: `${32 * previewScale}px` }}
+      >
         {pages.map(({ category, items: pageItems }, pageIndex) => {
           return (
             <div
               key={pageIndex}
-              className="print-page monthly-report-print-page bg-white text-slate-900 w-full shadow-2xl relative flex flex-col justify-between mx-auto mb-8 print:mb-0 print:shadow-none"
-              style={{ pageBreakAfter: 'always', padding: '15mm 10mm' }}
+              className="monthly-report-preview-sheet flex-none bg-white shadow-2xl"
+              style={{
+                width: '297mm',
+                height: '420mm',
+                padding: '10mm',
+                boxSizing: 'border-box',
+                zoom: previewScale
+              }}
             >
+              <div
+                className="print-page monthly-report-print-page bg-white text-slate-900 w-full h-full relative flex flex-col justify-between mx-auto print:shadow-none"
+                style={{
+                  pageBreakAfter: 'always',
+                  width: '277mm',
+                  height: '400mm',
+                  padding: '15mm 10mm',
+                  boxSizing: 'border-box'
+                }}
+              >
               <div className="flex-1">
                 {/* Header */}
                 <div className="mb-2 border-b-2 border-slate-800 pb-2">
@@ -383,6 +427,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
               <div className="mt-0 pt-2 border-t border-slate-300 text-[9px] text-slate-500 flex justify-between items-center">
                 <span>System: KDT Inventory Manager</span>
                 <span className="font-bold">KDT</span>
+              </div>
               </div>
             </div>
           );

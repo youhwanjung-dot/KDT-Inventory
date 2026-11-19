@@ -1,7 +1,7 @@
 {
-  "version": "1.3.8",
-  "VERSION_MODE": "1.3.8",
+  "version": "1.3.9",
+  "VERSION_MODE": "1.3.9",
   "MOCKUP_MODE": false,
   "STORAGE_MODE": "Cloud",
-  "comment": "Patch: print one A3 portrait 40-slot page per category; include month-end dates using the next-month exclusive boundary."
+  "comment": "Patch: unify monthly report preview and print as A3 portrait, one 40-slot page per category."
 }
