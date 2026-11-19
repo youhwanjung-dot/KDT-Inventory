@@ -9,10 +9,12 @@ interface AnalysisModalProps {
     onCancel: () => void;
 }
 
+const makeKdtKey = (it: InventoryItem) =>
+    `${(it.category || '').trim().toLowerCase()}|${(it.name || '').trim().toLowerCase()}|${(it.plating || '').trim().toLowerCase()}|${(it.spec || '').trim().toLowerCase()}`;
+
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ previewItems, currentInventory, onConfirm, onCancel }) => {
-    const duplicateCount = previewItems.filter(p =>
-        currentInventory.some(c => c.name === p.name)
-    ).length;
+    const existingKeys = new Set(currentInventory.map(makeKdtKey));
+    const duplicateCount = previewItems.filter(p => existingKeys.has(makeKdtKey(p))).length;
 
     return (
         <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -25,7 +27,7 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ previewItems, currentInve
                 </div>
                 <div className="p-6 space-y-4">
                     <p className="text-slate-600 dark:text-slate-300">
-                        총 <strong className="text-blue-600 dark:text-blue-400">{previewItems.length}</strong>건의 데이터를 등록합니다.
+                        총 <strong className="text-blue-600 dark:text-blue-400">{previewItems.length}</strong>건의 자재 데이터를 등록합니다.
                     </p>
 
                     <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4 border border-slate-100 dark:border-slate-700">
@@ -35,15 +37,15 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ previewItems, currentInve
                                 <span className="font-bold">{previewItems.length - duplicateCount}건</span>
                             </li>
                             <li className="flex justify-between text-orange-600 dark:text-orange-400">
-                                <span>기존 항목 중복 의심 (이름 일치):</span>
+                                <span>기존 항목 업데이트 (ZONE+품명+도금+규격 일치):</span>
                                 <span className="font-bold">{duplicateCount}건</span>
                             </li>
                         </ul>
                     </div>
 
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                        * 중복 의심 항목은 이름이 동일한 기존 데이터가 존재함을 의미합니다.<br />
-                        * [확인] 시 엑셀 데이터가 추가(Append) 됩니다.
+                        * ZONE + 품명 + 도금 + 규격이 동일한 기존 자재는 현재고 및 정보가 업데이트됩니다.<br />
+                        * [확인 및 등록] 시 DB에 즉시 반영됩니다.
                     </p>
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50">

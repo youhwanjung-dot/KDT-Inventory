@@ -1,10 +1,10 @@
-import * as admin from 'firebase-admin';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { ensureAdminApp } from './adminApp';
 
-// Admin SDK initialization (must be top-level)
-admin.initializeApp();
+// Lazy Admin SDK initialization so Firebase CLI discovery completes in <1s
+ensureAdminApp();
 
 // All Cloud Functions v2 deployed to Seoul (asia-northeast3)
 setGlobalOptions({ region: 'asia-northeast3' });

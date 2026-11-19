@@ -81,3 +81,7 @@ export const formatFlexibleDecimal = (
   value: number | string | undefined | null,
   fallback = '0'
 ): string => formatInteger(value, fallback);
+
+/** Alias for formatStockWithUnit (for compatibility) */
+export const formatStockWithRef = formatStockWithUnit;
+

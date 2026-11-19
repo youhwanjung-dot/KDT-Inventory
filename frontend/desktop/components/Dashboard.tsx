@@ -58,8 +58,8 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
     });
 
     map.forEach(val => {
-      val.totalOut = roundToOneDecimal(val.totalOut);
-      val.monthlyAvg = roundToOneDecimal(val.totalOut / 3);
+      val.totalOut = Math.round(val.totalOut);
+      val.monthlyAvg = Math.round(val.totalOut / 3);
     });
 
     return map;
@@ -96,12 +96,12 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
       let unused = 0;
 
       items.forEach(item => {
-        const stats = item3MonthStats.get(item.id) || item3MonthStats.get(item.name);
+        const stats = item3MonthStats.get(item.id);
         const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
         const safe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : Number(item.safeStock ?? 1);
         const current = Number(item.currentStock ?? 0);
 
-        const has6M = item6MonthStats.has(item.id) || item6MonthStats.has(item.name);
+        const has6M = item6MonthStats.has(item.id);
 
         if (hasTxHistory && !has6M) {
           unused++;
@@ -346,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              {totalStockCount.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              {Math.round(totalStockCount).toLocaleString('ko-KR')}<span className="text-base font-normal text-slate-500 ml-1">EA</span>
             </h3>
             <span className="text-[13px] text-emerald-600 font-bold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               전체 수량 ➔
@@ -361,7 +361,7 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
         >
           <div className="flex items-center justify-between text-[15px] font-extrabold text-slate-600 dark:text-slate-300">
             <span className="group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex items-center gap-1.5">
-              재고 확보율 (AI 리포트)
+              재고 확보율 (종합 리포트)
               <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-purple-500" />
             </span>
             <div className="p-2 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-lg group-hover:bg-purple-600 group-hover:text-white transition-all">

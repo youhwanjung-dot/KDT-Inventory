@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { FieldDef } from '../../constants';
+import { formatStockWithUnit } from '../../utils/formatters';
 import AnalysisModal from './AnalysisModal';
 
 interface StepPreviewProps {
@@ -18,20 +19,7 @@ const StepPreview: React.FC<StepPreviewProps> = ({
 }) => {
     const [showAnalysis, setShowAnalysis] = useState(false);
 
-    const getLabel = (key: string) => dbFields.find(f => f.key === key)?.label || key;
-    const formatOneDecimal = (value: any) => {
-        if (value === null || value === undefined || value === '') return '';
-        if (typeof value === 'number' && !Number.isNaN(value)) return value.toFixed(1);
-        if (typeof value === 'string') {
-            const trimmed = value.replace(/,/g, '').trim();
-            if (trimmed === '') return '';
-            if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-                const num = Number(trimmed);
-                if (!Number.isNaN(num)) return num.toFixed(1);
-            }
-        }
-        return String(value);
-    };
+    const getLabel = (key: string, fallback: string) => dbFields.find(f => f.key === key)?.label || fallback;
 
     const handleAnalyzeAndConfirm = () => {
         setShowAnalysis(true);
@@ -43,7 +31,7 @@ const StepPreview: React.FC<StepPreviewProps> = ({
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                     {isLegacyMode ? (
                         <span className="flex items-center gap-2 text-blue-600 font-bold">
-                            <CheckCircle size={16} /> 기존 엑셀 양식이 감지되어 자동으로 변환되었습니다.
+                            <CheckCircle size={16} /> KDT 엑셀 양식(입고시트 / 현 재고)이 감지되어 자동으로 변환되었습니다. (총 {previewItems.length}건)
                         </span>
                     ) : (
                         <span>총 <span className="font-bold text-blue-600 dark:text-blue-400">{previewItems.length}</span>개의 데이터가 변환되었습니다.</span>
@@ -55,27 +43,25 @@ const StepPreview: React.FC<StepPreviewProps> = ({
                 <table className="w-full text-sm text-left whitespace-nowrap">
                     <thead className="bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 sticky top-0 z-10 shadow-sm">
                         <tr>
-                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('category')}</th>
-                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('name')}</th>
-
-                            <th className="px-3 py-2 border-b dark:border-slate-700 bg-blue-50 dark:bg-blue-900/10 text-xs">{getLabel('pkgUnit')}</th>
-                            <th className="px-3 py-2 border-b dark:border-slate-700 bg-blue-50 dark:bg-blue-900/10 text-xs">{getLabel('pkgType')}</th>
-                            <th className="px-3 py-2 border-b dark:border-slate-700 bg-blue-50 dark:bg-blue-900/10 text-xs">{getLabel('outerPkg')}</th>
-
-                            <th className="px-3 py-2 border-b dark:border-slate-700 font-bold bg-slate-100 dark:bg-slate-700/50">{getLabel('currentStock')}</th>
-                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('unit')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('category', 'ZONE (대분류)')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('name', '품명 (소분류)')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('plating', '도금')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('spec', '규격')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700 font-bold bg-slate-100 dark:bg-slate-700/50 text-right">{getLabel('currentStock', '현재고(EA)')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700 text-center">{getLabel('unit', '단위')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('note', '비고')}</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                         {previewItems.map((item) => (
                             <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 group text-slate-700 dark:text-slate-300">
-                                <td className="p-2">{item.category}</td>
+                                <td className="p-2 font-semibold">{item.category}</td>
                                 <td className="p-2">{item.name}</td>
-                                <td className="p-2 text-center text-xs">{formatOneDecimal(item.pkgUnit)}</td>
-                                <td className="p-2 text-center text-xs">{item.pkgType}</td>
-                                <td className="p-2 text-center text-xs">{formatOneDecimal(item.outerPkg)}</td>
-                                <td className="p-2 text-right font-bold text-blue-600">{formatOneDecimal(item.currentStock)}</td>
+                                <td className="p-2 text-center text-xs">{item.plating || '-'}</td>
+                                <td className="p-2 text-center text-xs">{item.spec || '-'}</td>
+                                <td className="p-2 text-right font-bold text-blue-600">{formatStockWithUnit(item.currentStock, item.unit, item.eaPerUnit)}</td>
                                 <td className="p-2 text-center">{item.unit}</td>
+                                <td className="p-2 text-xs text-slate-500">{item.note || ''}</td>
                             </tr>
                         ))}
                     </tbody>

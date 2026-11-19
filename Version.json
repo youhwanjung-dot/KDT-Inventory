@@ -1,7 +1,7 @@
 {
-  "version": "1.0.0",
-  "VERSION_MODE": "1.0.0",
+  "version": "1.3.1",
+  "VERSION_MODE": "1.3.1",
   "MOCKUP_MODE": false,
   "STORAGE_MODE": "Cloud",
-  "comment": "Phase 1: KDT-Inventory initial migration from Asan-Inventory Ver5.34.0 (Seoul region, inventory core, KDT schema foundation)"
+  "comment": "Phase 4 Hotfix: Fixed formatStockWithRef export mismatch in StepPreview.tsx & formatters.ts, clean build verified, Hosting redeployed."
 }

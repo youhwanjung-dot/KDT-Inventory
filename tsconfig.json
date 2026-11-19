@@ -1,14 +1,13 @@
 {
   "include": [
-    "frontend/**/*.ts",
-    "frontend/**/*.tsx",
-    "frontend/**/*.js",
-    "frontend/**/*.jsx",
-    "backend/**/*.js"
+    "frontend/**/*"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "backup",
+    "functions",
+    "_agent"
   ],
   "compilerOptions": {
     "target": "ES2022",

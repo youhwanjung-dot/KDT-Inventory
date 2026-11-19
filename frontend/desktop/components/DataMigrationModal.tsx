@@ -1,9 +1,13 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Download, Upload, History, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { InventoryItem, InventoryTransaction, MasterData } from '../types';
 import { ActionLogger } from '../utils/logger';
 import { APP_VERSION } from '../constants';
 import ConfirmationModal from './ConfirmationModal';
+
+import { initialData } from '../initialData';
+import { INITIAL_TRANSACTIONS } from '../initialTransactions';
+import { formatItemDisplayKey } from '../utils/formatters';
 
 interface DataMigrationModalProps {
   items: InventoryItem[];
@@ -22,6 +26,30 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [pendingImportData, setPendingImportData] = useState<{ inventory: InventoryItem[], transactions: InventoryTransaction[], masterData?: MasterData } | null>(null);
 
+  const handleLoadKdtInitialSeed = () => {
+    const categories = ['ZONE16_Plus', 'ZONE18'];
+    const namesByCategory: Record<string, string[]> = {
+      ZONE16_Plus: initialData.filter(i => i.category === 'ZONE16_Plus').map(formatItemDisplayKey),
+      ZONE18: initialData.filter(i => i.category === 'ZONE18').map(formatItemDisplayKey),
+    };
+    const seedMaster: MasterData = {
+      categories,
+      namesByCategory,
+      nameOrder: initialData.map(formatItemDisplayKey),
+      zoneMeta: {
+        ZONE16_Plus: { zoneId: 'ZONE16_Plus', displayName: 'ZONE16_Plus', plannedProductionQty: 9600, aliasHistory: [] },
+        ZONE18: { zoneId: 'ZONE18', displayName: 'ZONE18', plannedProductionQty: 8800, aliasHistory: [] }
+      }
+    };
+    setSelectedFileName('KDT 초기 표준 데이터 (ZONE16_Plus 10품목 + ZONE18 22품목 / 33입고건)');
+    setPendingImportData({
+      inventory: initialData,
+      transactions: INITIAL_TRANSACTIONS,
+      masterData: seedMaster
+    });
+    setShowRollbackConfirm(true);
+  };
+
   const handleExport = () => {
     try {
       const backupData = {
@@ -29,11 +57,12 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
         date: new Date().toISOString(),
         inventory: items,
         transactions: transactions,
-        // [CRITICAL] masterData 포함: 복원 시 대분류/소분류 정렬 순서 완벽 복구 보장
+        // [CRITICAL] masterData 포함: 복원 시 ZONE/소분류 정렬 순서 및 zoneMeta 완벽 복구 보장
         masterData: {
           categories: masterData.categories,
           namesByCategory: masterData.namesByCategory,
           nameOrder: masterData.nameOrder,
+          zoneMeta: masterData.zoneMeta || {},
         },
       };
 
@@ -199,6 +228,22 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
               />
             </button>
           </div>
+
+          <button
+            onClick={handleLoadKdtInitialSeed}
+            className="w-full flex items-center justify-between gap-3 p-4 border-2 border-emerald-200 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/20 rounded-xl hover:border-emerald-500 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 transition-all"
+          >
+            <div className="flex items-center gap-3 text-left">
+              <div className="p-2.5 bg-emerald-600 text-white rounded-lg">
+                <Download size={20} />
+              </div>
+              <div>
+                <span className="block font-bold text-emerald-900 dark:text-emerald-200 text-sm">KDT 초기 입고 데이터 일괄 적재 (ZONE16_Plus / ZONE18)</span>
+                <span className="text-xs text-emerald-700 dark:text-emerald-300">검증된 초기 32개 품목 + 33건 입고 이력 + ZONE 메타정보 즉시 적재</span>
+              </div>
+            </div>
+            <span className="px-3 py-1 bg-emerald-600 text-white text-xs font-bold rounded-lg shrink-0">즉시 적재</span>
+          </button>
 
           {message && (
             <div className={`p-3 rounded-lg flex items-center gap-2 text-sm font-medium animate-fade-in ${

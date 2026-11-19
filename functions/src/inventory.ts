@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import { getAdmin } from './adminApp';
+const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 
@@ -11,7 +12,7 @@ export const inventory = onRequest({ cors: true }, async (req, res) => {
   try {
     if (req.method === 'GET') {
       const snapshot = await db.collection(COLLECTION).get();
-      const items = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      const items = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
       res.json(items);
       return;
     }

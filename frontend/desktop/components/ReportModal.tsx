@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, MasterData } from '../types';
@@ -109,13 +109,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
 
   // Calculate percentages based on the pixel widths passed from the main view
   const calculateWidthPercent = (key: string) => {
-    const validKeys = ['no', 'category', 'name', 'pkgUnit', 'pkgType', 'outerPkg', 'currentStock', 'unit', 'location', 'note'];
-    const noteWidth = 100;
-    const totalPx = validKeys.reduce((sum, k) => {
-      const w = columnWidths[k as any] || (k === 'note' ? noteWidth : 0);
-      return sum + w;
-    }, 0);
-    const targetWidth = columnWidths[key as any] || (key === 'note' ? noteWidth : 0);
+    const validKeys = ['no', 'category', 'name', 'plating', 'spec', 'currentStock', 'unit', 'location', 'note'];
+    const defaultMap: Record<string, number> = {
+      no: 45,
+      category: 100,
+      name: 180,
+      plating: 65,
+      spec: 85,
+      currentStock: 100,
+      unit: 65,
+      location: 90,
+      note: 150,
+    };
+    const totalPx = validKeys.reduce((sum, k) => sum + (columnWidths[k] || defaultMap[k] || 80), 0);
+    const targetWidth = columnWidths[key] || defaultMap[key] || 80;
     return `${(targetWidth / totalPx) * 100}%`;
   };
 
@@ -123,7 +130,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
   const getCategoryRowSpan = (pageItems: InventoryItem[], currentIndex: number) => {
     const currentCategory = pageItems[currentIndex].category;
     if (currentIndex > 0 && pageItems[currentIndex - 1].category === currentCategory) {
-      return 0; // 이전 행의 rowspan에 포함됨
+      return 0;
     }
     let count = 1;
     for (let i = currentIndex + 1; i < pageItems.length; i++) {
@@ -144,20 +151,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     fontSize: '12px',
-    fontFamily: "'Noto Sans KR', sans-serif"
+    fontFamily: "'Noto Sans KR', sans-serif",
   };
 
   const headerCellStyle: React.CSSProperties = {
     ...commonCellStyle,
-    height: '32px', // Explicit header height
-    backgroundColor: '#f1f5f9', // slate-100
-    borderRight: '1px solid #cbd5e1', // slate-300
-    borderTop: '2px solid #1e293b', // slate-800 (Title Line)
-    borderBottom: '1px solid #1e293b', // slate-800 (Header Line)
+    height: '32px',
+    backgroundColor: '#f1f5f9',
+    borderRight: '1px solid #cbd5e1',
+    borderTop: '2px solid #1e293b',
+    borderBottom: '1px solid #1e293b',
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#0f172a', // slate-900
-    display: 'table-cell'
+    color: '#0f172a',
+    display: 'table-cell',
   };
 
   const cellStyles = {
@@ -168,12 +175,11 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
     stock: { ...commonCellStyle, textAlign: 'right', fontWeight: 'bold' } as React.CSSProperties,
     unit: { ...commonCellStyle, textAlign: 'center', color: '#334155' } as React.CSSProperties,
     location: { ...commonCellStyle, textAlign: 'center', color: '#475569' } as React.CSSProperties,
-    note: { ...commonCellStyle, textAlign: 'center', color: '#64748b', borderRight: 'none' } as React.CSSProperties
+    note: { ...commonCellStyle, textAlign: 'left', color: '#64748b', borderRight: 'none' } as React.CSSProperties,
   };
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-auto p-4 custom-scrollbar print-modal-overlay">
-
       {/* Controls */}
       <div className="fixed top-4 right-4 flex gap-2 z-[110] no-print">
         <button
@@ -207,7 +213,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
               <div className="flex-1">
                 {/* Header */}
                 <div className="mb-2 border-b-2 border-slate-800 pb-2">
-                  <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">재고 현황 보고서</h1>
+                  <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">KDT 자재 재고 현황 보고서</h1>
                   <div className="flex justify-between items-end">
                     <span className="text-sm font-bold text-slate-700">KDT</span>
                     <span className="text-[10px] text-slate-500 font-medium">출력일: {today}</span>
@@ -220,9 +226,8 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                     <col style={{ width: calculateWidthPercent('no') }} />
                     <col style={{ width: calculateWidthPercent('category') }} />
                     <col style={{ width: calculateWidthPercent('name') }} />
-                    <col style={{ width: calculateWidthPercent('pkgUnit') }} />
-                    <col style={{ width: calculateWidthPercent('pkgType') }} />
-                    <col style={{ width: calculateWidthPercent('outerPkg') }} />
+                    <col style={{ width: calculateWidthPercent('plating') }} />
+                    <col style={{ width: calculateWidthPercent('spec') }} />
                     <col style={{ width: calculateWidthPercent('currentStock') }} />
                     <col style={{ width: calculateWidthPercent('unit') }} />
                     <col style={{ width: calculateWidthPercent('location') }} />
@@ -232,36 +237,32 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                   <thead>
                     <tr>
                       <th style={headerCellStyle}>No</th>
-                      <th style={headerCellStyle}>{getLabel('category', '대분류')}</th>
-                      <th style={headerCellStyle}>{getLabel('name', '품목명')}</th>
-                      <th style={headerCellStyle}>{getLabel('pkgUnit', '포장단위')}</th>
-                      <th style={headerCellStyle}>{getLabel('pkgType', '소포장 개수')}</th>
-                      <th style={headerCellStyle}>{getLabel('outerPkg', '박스구성')}</th>
-                      <th style={headerCellStyle}>{getLabel('currentStock', '잔량')}</th>
-                      <th style={headerCellStyle}>{getLabel('unit', '단위')}</th>
-                      <th style={headerCellStyle}>{getLabel('location', '보관장소')}</th>
-                      <th style={{ ...headerCellStyle, borderRight: 'none' }}>{getLabel('note', '비고')}</th>
+                      <th style={headerCellStyle}>ZONE</th>
+                      <th style={headerCellStyle}>품명</th>
+                      <th style={headerCellStyle}>도금</th>
+                      <th style={headerCellStyle}>규격</th>
+                      <th style={headerCellStyle}>현재고(EA)</th>
+                      <th style={headerCellStyle}>단위</th>
+                      <th style={headerCellStyle}>보관위치</th>
+                      <th style={{ ...headerCellStyle, borderRight: 'none' }}>비고</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {pageItems.map((item, i) => {
-                      const isLowStock = item.currentStock < item.safeStock;
+                      const isLowStock = item.safeStock > 0 && item.currentStock < item.safeStock;
                       const rowSpan = getCategoryRowSpan(pageItems, i);
                       const rowStyle: React.CSSProperties = {
-                        borderBottom: '1px solid #e2e8f0'
+                        borderBottom: '1px solid #e2e8f0',
                       };
+                      const stockInt = Math.round(Number(item.currentStock) || 0).toLocaleString('ko-KR');
 
                       return (
                         <tr key={item.id} style={{ ...rowStyle, height: '25px', backgroundColor: '#ffffff' }}>
                           <td style={cellStyles.no}>{startIndex + i + 1}</td>
 
-                          {/* Native Printing handles rowspan correctly */}
                           {rowSpan > 0 && (
-                            <td
-                              rowSpan={rowSpan}
-                              style={{ ...cellStyles.category, verticalAlign: 'middle' }}
-                            >
+                            <td rowSpan={rowSpan} style={{ ...cellStyles.category, verticalAlign: 'middle' }}>
                               {item.category}
                             </td>
                           )}
@@ -269,17 +270,20 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                           <td style={cellStyles.name} title={item.name}>
                             {item.name}
                           </td>
-                          <td style={cellStyles.spec}>{item.pkgUnit ? formatOneDecimal(item.pkgUnit) : '-'}</td>
-                          <td style={cellStyles.spec}>{item.pkgType || '-'}</td>
-                          <td style={cellStyles.spec}>{item.outerPkg ? formatOneDecimal(item.outerPkg) : '-'}</td>
+                          <td style={cellStyles.spec}>{item.plating || '-'}</td>
+                          <td style={cellStyles.spec}>{item.spec || '-'}</td>
 
                           <td style={{ ...cellStyles.stock, color: isLowStock ? '#dc2626' : '#1e293b' }}>
-                            {formatOneDecimal(item.currentStock)}
+                            {stockInt}
                           </td>
 
-                          <td style={cellStyles.unit}>{item.unit}</td>
-                          <td style={cellStyles.location}>{item.location}</td>
-                          <td style={cellStyles.note}>{item.note}</td>
+                          <td style={cellStyles.unit}>
+                            {(item.eaPerUnit ?? 1) > 1 && item.unit !== 'EA'
+                              ? `${item.unit}(×${item.eaPerUnit})`
+                              : item.unit || 'EA'}
+                          </td>
+                          <td style={cellStyles.location}>{item.location || '-'}</td>
+                          <td style={cellStyles.note}>{item.note || ''}</td>
                         </tr>
                       );
                     })}

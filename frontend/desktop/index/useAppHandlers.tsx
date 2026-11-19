@@ -245,10 +245,11 @@ export function useAppHandlers(state: AppState) {
         '일괄등록 진행',
         makeProgressMsg('서버 동기화 중입니다. 잠시만 기다려 주세요.'),
         async () => {
+          const makeKdtKey = (it: InventoryItem) =>
+            `${(it.category || '').trim().toLowerCase()}|${(it.name || '').trim().toLowerCase()}|${(it.plating || '').trim().toLowerCase()}|${(it.spec || '').trim().toLowerCase()}`;
           const existingMap = new Map<string, InventoryItem>();
           inventory.forEach((item) => {
-            const key = `${(item.category || '').trim().toLowerCase()}|${(item.name || '').trim().toLowerCase()}`;
-            existingMap.set(key, item);
+            existingMap.set(makeKdtKey(item), item);
           });
 
           let addedCount = 0;
@@ -257,13 +258,15 @@ export function useAppHandlers(state: AppState) {
           const processedIds = new Set<string>();
 
           for (const item of importedItems) {
-            const key = `${(item.category || '').trim().toLowerCase()}|${(item.name || '').trim().toLowerCase()}`;
+            const key = makeKdtKey(item);
             const existing = existingMap.get(key);
             if (existing) {
               mergedMap.set(existing.id, { ...existing, ...item, id: existing.id });
+              processedIds.add(existing.id);
               updatedCount++;
             } else {
               mergedMap.set(item.id, item);
+              processedIds.add(item.id);
               addedCount++;
             }
           }

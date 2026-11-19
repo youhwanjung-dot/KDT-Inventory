@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import { getAdmin } from './adminApp';
+const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 

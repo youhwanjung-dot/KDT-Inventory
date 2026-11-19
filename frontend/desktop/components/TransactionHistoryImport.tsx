@@ -100,15 +100,39 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
 
          const debugLogs: string[] = []; // [DEBUG]
 
-         // Pre-compute normalized inventory map (Handle duplicates by name)
+         // Pre-compute normalized inventory map (Index both displayKey "name [plating/spec]" and plain name)
+         const buildDisplayKey = (it: InventoryItem) => {
+            const parts = [it.plating?.trim(), it.spec?.trim()].filter(Boolean);
+            return parts.length > 0 ? `${it.name} [${parts.join('/')}]` : it.name;
+         };
          const inventoryMap = new Map<string, InventoryItem[]>();
+         const pushToMap = (rawKey: string, it: InventoryItem) => {
+            const k = normalizeStr(rawKey);
+            if (!k) return;
+            if (!inventoryMap.has(k)) inventoryMap.set(k, []);
+            inventoryMap.get(k)!.push(it);
+         };
          inventory.forEach(item => {
-            const key = normalizeStr(item.name);
-            if (!inventoryMap.has(key)) {
-               inventoryMap.set(key, []);
-            }
-            inventoryMap.get(key)?.push(item);
+            pushToMap(buildDisplayKey(item), item);
+            pushToMap(item.name, item);
          });
+
+         // Detect global workbook year from first sheet if available
+         let workbookYear = new Date().getFullYear();
+         if (sheetNames.length > 0) {
+            const firstWs = wb.Sheets[sheetNames[0]];
+            if (firstWs) {
+               const firstData = utils.sheet_to_json(firstWs, { header: 1 }) as any[][];
+               for (let r = 0; r < Math.min(5, firstData.length); r++) {
+                  const rowStr = (firstData[r] || []).join(' ');
+                  const m = rowStr.match(/(\d{4})년/) || rowStr.match(/Year\s*(\d{4})/i);
+                  if (m) {
+                     workbookYear = parseInt(m[1], 10);
+                     break;
+                  }
+               }
+            }
+         }
 
          // --- Loop through sheets one by one ---
          for (let i = 0; i < totalSheets; i++) {
@@ -140,11 +164,10 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                debugLogs.push(`[${sheetName}] Header Found at Row ${headerRowIndex + 1}`);
                debugLogs.push(`[${sheetName}] Row Count: ${data.length}`);
 
-               // Extract Year (from Header or Default 2025)
-               let year = 2025;
+               // Extract Year (from sheet header or workbookYear)
+               let year = workbookYear;
                for (let r = 0; r <= headerRowIndex; r++) {
                   const rowStr = (data[r] || []).join(' ');
-                  // Support "2025년" and "Year 2025"
                   const yMatch = rowStr.match(/(\d{4})년/) || rowStr.match(/Year\s*(\d{4})/i);
                   if (yMatch) {
                      year = parseInt(yMatch[1]);
@@ -184,6 +207,7 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                      const normalizedExcelItemName = normalizeStr(excelName);
                      const dbItems = inventoryMap.get(normalizedExcelItemName);
                      if (!dbItems || dbItems.length === 0) return null;
+                     // Strictly prefer item belonging to the current ZONE sheet first (cross-ZONE duplicate protection)
                      let matchedItem = dbItems.find(item =>
                         normalizeStr(item.category) === normalizedSheetName ||
                         normalizedSheetName.includes(normalizeStr(item.category))

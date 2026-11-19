@@ -1,0 +1,50 @@
+specVersion: v1alpha1
+endpoints:
+  login:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: login
+    httpsTrigger: {}
+  processExcelImport:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: processExcelImport
+    callableTrigger: {}
+  masterData:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: masterData
+    httpsTrigger: {}
+  inventory:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: inventory
+    httpsTrigger: {}
+  transactions:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: transactions
+    httpsTrigger: {}
+  migration:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: migration
+    httpsTrigger: {}
+  users:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: users
+    httpsTrigger: {}
+  healthCheck:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: healthCheck
+    httpsTrigger: {}

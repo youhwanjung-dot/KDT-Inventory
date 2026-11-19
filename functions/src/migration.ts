@@ -1,12 +1,13 @@
-import * as admin from 'firebase-admin';
+import { getAdmin } from './adminApp';
+const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 
 const toInt = (val: unknown): number => Math.round(Number(val) || 0);
 
 async function deleteDocsInChunks(
-  db: admin.firestore.Firestore,
-  docs: admin.firestore.QueryDocumentSnapshot[]
+  db: any,
+  docs: any[]
 ) {
   const CHUNK = 400;
   for (let i = 0; i < docs.length; i += CHUNK) {

@@ -1,4 +1,5 @@
-import * as admin from 'firebase-admin';
+import { getAdmin } from './adminApp';
+const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 
@@ -14,7 +15,7 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
   try {
     if (req.method === 'GET') {
       const snapshot = await db.collection(TX_COLLECTION).get();
-      const txList = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      const txList = snapshot.docs.map((doc: any) => ({ ...doc.data(), id: doc.id }));
       res.json(txList);
       return;
     }
@@ -33,7 +34,7 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
 
       let currentStock = 0;
 
-      await db.runTransaction(async (transaction) => {
+      await db.runTransaction(async (transaction: any) => {
         const invDoc = await transaction.get(invRef);
         if (invDoc.exists) {
           const invData = invDoc.data()!;
@@ -137,7 +138,7 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
       if (!txDoc.exists) {
         const querySnap = await db.collection(TX_COLLECTION).where('id', '==', txId).limit(1).get();
         if (!querySnap.empty) {
-          txRef = querySnap.docs[0].ref as admin.firestore.DocumentReference;
+          txRef = querySnap.docs[0].ref as any;
           txDoc = querySnap.docs[0];
         }
       }

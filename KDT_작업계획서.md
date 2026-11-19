@@ -109,17 +109,22 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 
 ---
 
-## 5. 엑셀 공동작업 파일 (`KDT-Inventory.xlsx` 양방향)
+## 5. 엑셀 공동작업 파일 (`KDT-Inventory.xlsx` 양방향 — 50슬롯 & 연도별 동적 캘린더)
 
 1. **`현 재고` 시트**:
-   - 컬럼: `연번 | ZONE(대분류) | 품명 | 도금 | 규격 | 단위 | 단위당EA | 1대당소요 | 현재고(EA) | 보관위치 | 비고`
-   - 각 ZONE 시트 연간 최종 잔량(`=ZONE시트!D390` 등) 자동 수식 참조
-2. **ZONE별 일자 수불부 시트 (30슬롯)**:
+   - 컬럼: `연번 | ZONE(대분류) | 품명 | 도금 | 규격 | 단위/환산 | 현재고(EA) | 보관위치 | 1대당소요 | 비고`
+   - 선택된 대상 연도(`targetYear`, 예: 2026년 → 2027년)에 맞춰 타이틀(`{targetYear}년 KDT 자재 재고현황`) 및 각 ZONE 시트 연간 최종 잔량(`=ZONE시트!D390` 등) 자동 수식 참조
+2. **ZONE별 일자 수불부 시트 (30슬롯 → 50슬롯 확장)**:
    - 시트명 = ZONE 표시명 (`ZONE16_Plus`, `ZONE18` 등)
-   - 상단 헤더(R3): 고유 표시키 (`품명 [도금/규격]`, 도금·규격 없을 시 `품명`) → 동일 품명(볼트/너트류) 충돌 방지
-   - 일자별 `입고 / 출고 / 잔량` (정수 EA), 월계·연계 수식 아산노블과 100% 동일 구조
-3. **초기 입고 리스트 임포트**:
-   - 현 `_user/KDT-Inventory.xlsx` (`ZONE16_Plus_Inbound`, `ZONE18_Inbound`) 형식을 파싱하여 초기 자재 + 2026-11-17~18 입고 이력으로 자동 적재
+   - **슬롯 확장**: ZONE당 소분류 최대 **50개 품목 슬롯** (`col = 2, 6, 10 ... 198`, 50슬롯 × 4열 = 200열) 동적 수식·서식 생성
+   - **연도별 캘린더 자동 갱신 (2026 → 2027 등)**:
+     - 엑셀 내보내기 시 대상 연도(`targetYear`)를 기준으로 A열 1월~12월 일자 및 상단 연도 헤더를 자동 갱신
+     - `targetYear` 이전 누적 잔고는 **Row 4 (기초 이월재고)** 로 자동 합산 이월하고, `targetYear` 당해 연도 입출고만 일자별 셀에 기록
+   - 상단 헤더(R3): 고유 표시키 (`품명 [도금/규격]`) → 동일 품명 충돌 방지
+3. **ZONE 간 중복(공통) 소분류 및 현장 혼입·정산 대응**:
+   - **엄격한 4요소 키 매칭**: `ZONE + 품명 + 도금 + 규격` 조합으로 ZONE별 장부 분리
+   - **[공통자재 합산 뷰 (현장 혼입 실사 모드)]**: 재고 현황 화면에서 `품명 + 도금 + 규격` 기준으로 전 ZONE 재고를 합산해 **작업장 실물 총재고**와 **ZONE별 장부 배분량**을 동시에 대조하는 토글 뷰 제공
+   - **[ZONE 완료 반납·이관 정산 기능]**: ZONE 작업 완료 시 잔여 재고를 반납 정산(출고)하거나 신규 ZONE으로 일괄 이관(정산출고 + 신규 ZONE 이관입고)하는 정산 모달 지원
 
 ---
 
@@ -132,26 +137,39 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | Hosting URL | asannoble-inventory.web.app | `https://kdt-inventory.web.app/login` |
 | 로컬 포트 | 3400 / 3410 | **`3500`** (단일 포트) |
 | 빌드 스크립트 | `_Local_run_inventory.bat` / `_Cloud_run_inventory.bat` | **`_Local_run_KDT.bat`** / **`_Cloud_run_KDT.bat`** (영문 ASCII 표준) |
-| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (승인 완료) |
+| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.1.0`**) |
 
 | MODE Flag (`Version.json`) | 초기값 | 비고 |
 |---|---|---|
-| `VERSION_MODE` | `1.0.0` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.1.0` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | ON → OFF | 초기 GUI 검증용 목업 분기 유지 (삭제 금지) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore + 로컬 분기 코드 보존 (캐시 금지) |
 
 ---
 
-## 7. 단계별 추진 일정 (Master Roadmap)
+## 7. 단계별 추진 일정 및 실시간 모니터링 (Master Roadmap)
+
+> **실시간 상태**: **Phase 1 ~ Phase 4 (`Ver 1.3.1`) 전 과정 100% 구축 및 클라우드 배포·Hotfix 완료·운영 DB 32품목/33건 적재 완료!** (최종 갱신: `2026-11-19 16:25` / 버전: `Ver 1.3.1`)
+> **운영 접속 URL**: **`https://kdt-inventory.web.app/login`** (서울 리전 `asia-northeast3` Cloud Functions v2 + Firestore 실시간 연동 완료)
 
 | 단계 | 세부 작업 | 상태 | 반영 버전 |
 |:---|:---|:---:|:---:|
-| **Phase 0** | 1차·2차 QnA 완료, DB 스키마 및 작업계획서 확정 | 완료 | – |
-| **Phase 0.5** | 착수 전 최종 확인 4건 (`QmA.md` 3차: EA 기준·평와셔 합산/분리·비번·GitHub) | 진행중 | – |
-| **Phase 1** | Firebase `kdt-inventory` 초기 세팅(웹앱·Firestore 서울), Asan 재고관리 소스 선별 이식, `Version.json`·`Blueprint.md`·`Revision_history.md`·빌드 스크립트 2종 구축, Git 초기화 | 대기 | Ver 1.0.0 |
-| **Phase 2** | KDT DB 스키마 반영 (`types.ts`, `firebaseClient.ts`, `functions/*` 서울 리전, `firestore.rules`/`indexes`), 초기 사용자 6명 시드 | 대기 | Ver 1.1.0 |
-| **Phase 3** | ZONE 관리(별칭 변경 이력·2차 생산수량 필드), 자재 목록(`InventoryList` 폴더 리팩토링)·등록폼(`StockForm`: 도금/규격/단위/환산/보관위치) 개편 | 대기 | Ver 1.2.0 |
-| **Phase 4** | 입출고 관리(`TransactionModal`: EA 정수·작업자 연동) 및 대시보드/보고서(재고현황·월별 수불부·연간 사용현황) KDT 최적화 | 대기 | Ver 1.3.0 |
-| **Phase 5** | 엑셀 공동작업 양방향 구현 (`KDT template.xlsx` 30슬롯 Export + 일자별 수불부 Import + `_user/KDT-Inventory.xlsx` 초기 데이터 적재) | 대기 | Ver 1.4.0 |
-| **Phase 6** | 로컬 클린빌드(`_Local_run_KDT.bat`) 검증 → 클라우드 배포(`_Cloud_run_KDT.bat`) → 운영 URL 실접속 검증 → 사용자 매뉴얼 갱신 → 롤백 백업(`backup/Ver1.5.0`) | 대기 | Ver 1.5.0 |
-| **2차 과제** | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 대시보드 (스키마 선반영 완료) | 예정 | Ver 2.0.0 |
+| **Phase 0** | 1차·2차·3차 QnA 완료, DB 스키마 및 입출고 권한(C1~C4) 최종 확정 | **완료** | – |
+| **Phase 1** | Firebase `kdt-inventory` 웹앱·서울 설정, Asan 재고 코어 선별 이식, Functions v2 서울 리전 + KDT 스키마/6명 사용자 백엔드, 빌드 스크립트 2종, 클린빌드 0에러, `backup/Ver1.0.0`, GitHub 1차 푸시 | **완료** | Ver 1.0.0 |
+| **Phase 2** | **KDT 핵심 UI·권한·Rule 5 리팩토링 + 50슬롯/연도캘린더/혼입합산·정산**: `UserManagerModal`, `TransactionModal`, `StockForm`, `InventoryList/`(50슬롯·연도별 캘린더·공통자재 합산뷰·ZONE 정산), `MasterDataManagerModal/`(ZONE 별칭·생산수량), `TransactionHistoryImport`, `ReportModal` | **완료** | Ver 1.1.0 |
+| **Phase 3** | **초기 32품목/33건 데이터 시드 & 입고시트 전용 파서 & 대시보드**: `_user/KDT-Inventory.xlsx` 32품목/33건(`ZONE16_Plus` 10품목, `ZONE18` 22품목, 평와셔 M8 46,100 EA 통합) `initialData.ts`·`initialTransactions.ts` 및 원클릭 초기 적재 기능 탑재, `LegacyParser.ts` 입고시트(`육각볼트 SET`+`ㅁ` 구성품 분리) 직접 임포트 지원, 대시보드 정수 EA 최적화 | **완료** | Ver 1.2.0 |
+| **Phase 4** | **배포 및 실접속 검증**: 클린빌드 검증 → `backup/Ver1.2.0` → Firebase(`kdt-inventory`, 서울 리전 `asia-northeast3`) 배포 → 운영 DB 초기 32품목/33건/6명 사용자/`zoneMeta` 시드 적재 → `https://kdt-inventory.web.app/login` 실접속 및 API 200 OK 검증 완료 | **완료 (100%)** | Ver 1.3.0 |
+| **Hotfix** | **빌드 에러 해결 및 호환 심볼 추가**: `StepPreview.tsx`와 `formatters.ts`의 `formatStockWithRef` 누락 심볼 수정, `functions/src` 엄격 타입 검사 수정, Vite 클린 빌드(0 에러) 검증 후 Hosting 재배포 완료 | **완료 (100%)** | Ver 1.3.1 |
+| **2차 과제** | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 (DB 스키마 선반영 완료) | 예정 | Ver 2.0.0 |
+
+### ▶ Phase 4 (`Ver 1.3.0` ~ `Ver 1.3.1`) 세부 진행 로그 (실시간 갱신)
+- [x] `4-1` 프론트엔드 및 백엔드(`functions/lib`, Node.js 22 2nd Gen, Lazy Admin SDK) 클린빌드 0에러 검증 완료
+- [x] `4-2` `backup/Ver1.2.0` 롤백 아카이브 생성 및 GitHub 커밋/푸시 완료
+- [x] `4-3` Firebase(`kdt-inventory`, 서울 리전 `asia-northeast3`) Firestore Rules/Indexes, Cloud Functions v2 (8개 전체 함수), Hosting(`https://kdt-inventory.web.app`) 배포 완료
+- [x] `4-4` 운영 Firestore DB 초기 데이터(`ZONE16_Plus` 10품목 + `ZONE18` 22품목 = 32품목, 33건 입고 이력, 6명 기본 사용자, `masterData.zoneMeta`) 시드 적재 및 라이브 API 200 OK 검증 완료
+- [x] `4-5` `formatStockWithRef` export 누락 및 functions 타입 에러 긴급 패치(Hotfix) 완료
+- [x] `4-6` Vite 클린 빌드 0에러 확인, Firebase Hosting 배포 완료, 라이브 웹앱 정상 로드 및 8개 API 엔드포인트 200 OK 검증 완료
+- [x] `4-7` `Ver 1.3.1` 최종 버전 갱신, 로컬(`3500`) 및 클라우드(`https://kdt-inventory.web.app/login`) 정상 가동 완료
+
+
+

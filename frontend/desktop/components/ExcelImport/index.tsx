@@ -5,7 +5,7 @@ import { InventoryItem, Category } from '../../types';
 import { ActionLogger } from '../../utils/logger';
 import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY, FieldDef } from '../../constants';
 import { FieldMapping, cleanNumber, resolveMergedCells, resolveFormulaRefs, getKeywords } from './utils';
-import { processFixedLegacyFormat, guessMapping } from './LegacyParser';
+import { processFixedLegacyFormat, processKdtInboundSheet, guessMapping } from './LegacyParser';
 import StepUpload from './StepUpload';
 import StepMapping from './StepMapping';
 import StepPreview from './StepPreview';
@@ -58,10 +58,11 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     2
                 ].filter(i => i >= 0);
                 const MIN_LEGACY_ITEMS = 1;
-                const normalizeKey = (category: string, name: string) => `${String(category || '').trim().toLowerCase()}|${String(name || '').trim().toLowerCase()}`;
+                const normalizeKey = (item: InventoryItem) =>
+                    `${String(item.category || '').trim().toLowerCase()}|${String(item.name || '').trim().toLowerCase()}|${String(item.plating || '').trim().toLowerCase()}|${String(item.spec || '').trim().toLowerCase()}`;
 
                 const addLegacyItem = (item: InventoryItem) => {
-                    const key = normalizeKey(item.category, item.name);
+                    const key = normalizeKey(item);
                     const existing = legacyMap.get(key);
                     if (!existing) {
                         legacyMap.set(key, item);
@@ -72,6 +73,22 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     }
                 };
 
+                // 1) Check for KDT Inbound sheets first (e.g. ZONE16_Plus_Inbound, ZONE18_Inbound)
+                const inboundSheets = wb.SheetNames.filter(n => /_inbound$/i.test(String(n || '').trim()));
+                if (inboundSheets.length > 0) {
+                    inboundSheets.forEach(sheetName => {
+                        const ws = wb.Sheets[sheetName];
+                        if (!ws) return;
+                        resolveMergedCells(ws);
+                        resolveFormulaRefs(wb, ws);
+                        const data = utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as any[][];
+                        const res = processKdtInboundSheet(data, sheetName);
+                        if (res.success) {
+                            res.items.forEach(addLegacyItem);
+                        }
+                    });
+                }
+
                 const tryParseLegacy = (sheetName: string) => {
                     const ws = wb.Sheets[sheetName];
                     if (!ws) return;
@@ -79,12 +96,20 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     resolveFormulaRefs(wb, ws);
                     const data = utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as any[][];
                     if (!data || data.length === 0) return;
-                    // Dynamic header scan first
+
+                    // Also support KDT Inbound format on arbitrary sheet names if headers match
+                    const kdtRes = processKdtInboundSheet(data, sheetName);
+                    if (kdtRes.success && kdtRes.items.length > 0) {
+                        kdtRes.items.forEach(addLegacyItem);
+                        return;
+                    }
+
+                    // Dynamic header scan
                     const normalize = (s: any) => String(s || '').replace(/\s/g, '').toLowerCase();
                     const hasHeaders = (row: any[]) => {
                         const rowNorm = row.map(normalize);
                         const hasName = rowNorm.some(c => ['소분류', '품목명', '품명'].some(k => rowNorm.includes(normalize(k))));
-                    const hasStock = rowNorm.some(c => ['잔량', '현재고', '재고', '기준재고'].some(k => rowNorm.includes(normalize(k))));
+                        const hasStock = rowNorm.some(c => ['잔량', '현재고', '재고', '기준재고'].some(k => rowNorm.includes(normalize(k))));
                         return hasName && hasStock;
                     };
                     let pickedHeader = -1;
@@ -102,24 +127,24 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                         const result = processFixedLegacyFormat(data, idx, dbFields);
                         if (result.success && result.items.length > 0) {
                             result.items.forEach(addLegacyItem);
-                            // do not break; continue to accumulate in case of multiple blocks
                         }
                     }
                 };
 
-                // Prefer parsing only the MAIN ('현 재고') sheet for legacy format
-                const preferMain = wb.SheetNames.find(n => {
-                    const norm = String(n || '').replace(/\s/g, '').toLowerCase();
-                    return norm.includes('현재고') || norm.includes('재고현황') || norm === 'main' || norm === 'inventory';
-                });
-                if (preferMain) {
-                    tryParseLegacy(preferMain);
-                } else {
-                    wb.SheetNames.forEach((sheetName) => {
-                        const normalized = String(sheetName || '').replace(/\s/g, '').toLowerCase();
-                        if (['표지', 'cover'].includes(normalized)) return;
-                        tryParseLegacy(sheetName);
+                if (legacyMap.size === 0) {
+                    const preferMain = wb.SheetNames.find(n => {
+                        const norm = String(n || '').replace(/\s/g, '').toLowerCase();
+                        return norm.includes('현재고') || norm.includes('재고현황') || norm === 'main' || norm === 'inventory';
                     });
+                    if (preferMain) {
+                        tryParseLegacy(preferMain);
+                    } else {
+                        wb.SheetNames.forEach((sheetName) => {
+                            const normalized = String(sheetName || '').replace(/\s/g, '').toLowerCase();
+                            if (['표지', 'cover'].includes(normalized)) return;
+                            tryParseLegacy(sheetName);
+                        });
+                    }
                 }
 
                 legacyMap.forEach(item => legacyItems.push(item));

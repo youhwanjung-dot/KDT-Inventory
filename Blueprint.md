@@ -7,7 +7,7 @@
 
 | Flag | 현재 값 | 설명 |
 |---|---|---|
-| `VERSION_MODE` | `Ver 1.0.0` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `Ver 1.3.1` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | `false` | `true` 전환 시 초기 목업 데이터 분기 동작 (코드 보존) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore (`asia-northeast3` 서울) / 로컬 분기 보존 |
 
@@ -47,7 +47,8 @@ KDT-Inventory_3500/
 │  └─ QmA.md                          (1차~3차 설계 질의응답 누적)
 ├─ STORAGE/                           (파일시스템 영구 스토리지 영역)
 ├─ backup/                            (롤백용 버전별 백업 아카이브, 최근 5개 유지)
-│  └─ Ver1.0.0/
+│  ├─ Ver1.0.0/
+│  └─ Ver1.1.0/
 ├─ dist/                              (Vite 빌드 출력, .gitignore)
 ├─ firestore/
 │  ├─ firestore.rules                 (KDT 재고 전용 보안 규칙)
@@ -84,11 +85,22 @@ KDT-Inventory_3500/
 │     └─ components/
 │        ├─ Login.tsx                 (KDT 로그인 모달 — 버전/빌드타임/입출고 권한 표시)
 │        ├─ Dashboard.tsx             (메인 대시보드)
-│        ├─ InventoryList.tsx         (재고 목록 + 엑셀 내보내기 — Phase 3에서 폴더 리팩토링 예정)
-│        ├─ StockForm.tsx             (자재 등록/수정 폼)
-│        ├─ TransactionModal.tsx      (입출고 처리 및 이력 모달 — Phase 3 입출고 권한 분기 적용)
-│        ├─ MasterDataManagerModal.tsx (ZONE 대분류·별칭·소분류 기준정보 관리)
-│        ├─ UserManagerModal.tsx      (사용자 및 입출고 권한 관리)
+│        ├─ InventoryList.tsx         (Rule 5 윈도우 쉘 — Ver 1.1.0 리팩토링)
+│        ├─ InventoryList/            (재고 목록·툴바·테이블·30슬롯 엑셀 내보내기 모듈)
+│        │  ├─ index.tsx
+│        │  ├─ types.ts
+│        │  ├─ InventoryToolbar.tsx
+│        │  ├─ InventoryTable.tsx
+│        │  └─ excelExport.ts
+│        ├─ StockForm.tsx             (KDT 자재 등록/수정 폼 — 도금/규격/단위/환산/2차 BOM)
+│        ├─ TransactionModal.tsx      (입출고 권한 비활성화·정수 EA·SET/BOX 환산 입력 모달)
+│        ├─ MasterDataManagerModal.tsx (Rule 5 윈도우 쉘 — Ver 1.1.0 리팩토링)
+│        ├─ MasterDataManagerModal/   (ZONE 별칭 이력·목표 생산수량·기준정보 CRUD 모듈)
+│        │  ├─ index.tsx
+│        │  ├─ types.ts
+│        │  ├─ ZoneMetaModal.tsx
+│        │  └─ AnalysisConfirmModal.tsx
+│        ├─ UserManagerModal.tsx      (사용자 및 입출고 권한 ALL/IN_ONLY/OUT_ONLY 관리)
 │        ├─ DataMigrationModal.tsx    (DB 백업/복원 모달)
 │        ├─ InventoryReport.tsx       (재고 현황 보고서)
 │        ├─ MonthlyReportModal.tsx    (월별 수불부 보고서)

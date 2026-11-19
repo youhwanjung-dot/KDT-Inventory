@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Layers, Info, Trash2 } from 'lucide-react';
+import { X, Check, Layers, Trash2, SlidersHorizontal } from 'lucide-react';
 import { InventoryItem, MasterData } from '../types';
-import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY, FieldDef } from '../constants';
-import { roundToOneDecimal } from '../utils/formatters';
+import { formatStockWithUnit, roundToInt } from '../utils/formatters';
 
 interface StockFormProps {
   item?: InventoryItem;
@@ -16,179 +15,146 @@ interface StockFormProps {
 const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSave, onDelete, onCancel }) => {
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
     category: '',
+    zoneId: '',
     name: '',
+    plating: '',
+    spec: '',
+    unit: 'EA',
+    eaPerUnit: 1,
+    qtyPerProduct: 0,
+    setGroup: '',
     pkgUnit: '',
     pkgType: '',
     outerPkg: '',
-    unit: 'EA',
     currentStock: 0,
-    safeStock: 1,
+    safeStock: 0,
     location: '',
     supplier: '',
-    note: ''
+    note: '',
   });
-
-  // Custom Labels State
-  const [labels, setLabels] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let fields = DEFAULT_DB_FIELDS;
-    try {
-      const saved = localStorage.getItem(FIELD_SETTINGS_KEY);
-      if (saved) fields = JSON.parse(saved);
-    } catch { }
-
-    const labelMap: Record<string, string> = {};
-    fields.forEach(f => {
-      const cleanLabel = f.label.replace(/^\d+\.\s*/, '').replace(/\(.*\)/, '').trim();
-      labelMap[f.key] = cleanLabel || f.label;
-    });
-    setLabels(labelMap);
-  }, []);
-
-  // Use masterData prop directly (no localStorage needed)
-  const customMasterData = masterData;
-
-  const getLabel = (key: string, defaultLabel: string) => {
-    return labels[key] || defaultLabel;
-  };
 
   const categoryOrderMap = useMemo(() => {
     const map = new Map<string, number>();
-    customMasterData.categories.forEach((c, i) => map.set(c, i));
+    masterData.categories.forEach((c, i) => map.set(c, i));
     return map;
-  }, [customMasterData]);
+  }, [masterData]);
 
   const nameOrderMap = useMemo(() => {
     const map = new Map<string, number>();
-    customMasterData.nameOrder.forEach((n, i) => map.set(n, i));
+    masterData.nameOrder.forEach((n, i) => map.set(n, i));
     return map;
-  }, [customMasterData]);
+  }, [masterData]);
 
-  const maxCategoryOrder = useMemo(() => {
-    let max = -1;
-    categoryOrderMap.forEach(value => {
-      if (value > max) max = value;
-    });
-    return max;
-  }, [categoryOrderMap]);
-
-  const maxNameOrder = useMemo(() => {
-    let max = -1;
-    nameOrderMap.forEach(value => {
-      if (value > max) max = value;
-    });
-    return max;
-  }, [nameOrderMap]);
-
-  // --- Data Aggregation for Datalists ---
-
-  // 1. Categories
   const uniqueCategories = useMemo(() => {
-    const existing = inventory.map(i => i.category).filter(Boolean);
-    const custom = customMasterData.categories || [];
+    const existing = inventory.map((i) => i.category).filter(Boolean);
+    const custom = masterData.categories || [];
     return Array.from(new Set([...existing, ...custom])).sort((a, b) => {
       const orderA = categoryOrderMap.get(a);
       const orderB = categoryOrderMap.get(b);
-      if (orderA !== undefined && orderB !== undefined && orderA !== orderB) {
-        return orderA - orderB;
-      }
-      if (orderA !== undefined && orderB === undefined) return -1;
-      if (orderA === undefined && orderB !== undefined) return 1;
+      if (orderA !== undefined && orderB !== undefined && orderA !== orderB) return orderA - orderB;
+      if (orderA !== undefined) return -1;
+      if (orderB !== undefined) return 1;
       return a.localeCompare(b);
     });
-  }, [inventory, customMasterData, categoryOrderMap]);
+  }, [inventory, masterData, categoryOrderMap]);
 
-  // 2. Names (Filtered by current Category)
   const uniqueNames = useMemo(() => {
-    // Filter items by currently selected category (if any)
     const currentCat = formData.category?.trim();
-    let relevantItems = inventory;
-
-    if (currentCat) {
-      relevantItems = inventory.filter(i => i.category === currentCat);
-    }
-
-    const names = relevantItems.map(i => i.name).filter(Boolean);
-    const customByCategory = customMasterData.namesByCategory || {};
+    const relevant = currentCat ? inventory.filter((i) => i.category === currentCat) : inventory;
+    const names = relevant.map((i) => i.name).filter(Boolean);
     const customNames = currentCat
-      ? (customByCategory[currentCat] || [])
-      : Object.values(customByCategory).flat();
-    return Array.from(new Set([...names, ...customNames])).sort((a, b) => {
-      const orderA = nameOrderMap.get(a);
-      const orderB = nameOrderMap.get(b);
-      if (orderA !== undefined && orderB !== undefined && orderA !== orderB) {
-        return orderA - orderB;
-      }
-      if (orderA !== undefined && orderB === undefined) return -1;
-      if (orderA === undefined && orderB !== undefined) return 1;
-      return a.localeCompare(b);
-    });
-  }, [inventory, formData.category, customMasterData, nameOrderMap]);
+      ? masterData.namesByCategory[currentCat] || []
+      : Object.values(masterData.namesByCategory || {}).flat();
+    return Array.from(new Set([...names, ...customNames])).sort((a, b) => a.localeCompare(b));
+  }, [inventory, formData.category, masterData]);
 
-  // 3. Units
-  const uniqueUnits = useMemo(() => {
-    const units = inventory.map(i => i.unit).filter(Boolean);
-    return Array.from(new Set([...units, 'EA', 'Box', 'Pack', 'Roll', 'Set'])).sort();
+  const uniquePlatings = useMemo(() => {
+    const existing = inventory.map((i) => i.plating || '').filter(Boolean);
+    return Array.from(new Set([...existing, '3가', 'SUS', '아연', '니켈', '무도금'])).sort();
   }, [inventory]);
 
-  // 4. Locations (Defaults + Existing)
+  const uniqueSpecs = useMemo(() => {
+    const existing = inventory.map((i) => i.spec || '').filter(Boolean);
+    return Array.from(new Set(existing)).sort();
+  }, [inventory]);
+
+  const uniqueUnits = useMemo(() => {
+    const existing = inventory.map((i) => i.unit).filter(Boolean);
+    return Array.from(new Set(['EA', 'SET', 'BOX', ...existing]));
+  }, [inventory]);
+
   const uniqueLocations = useMemo(() => {
-    const existing = inventory.map(i => i.location).filter(Boolean);
-    const defaults = ["1창고", "2창고", "냉장고", "냉동고", "캐비닛 A", "캐비닛 B", "데스크"];
+    const existing = inventory.map((i) => i.location).filter(Boolean);
+    const defaults = ['A-랙', 'B-랙', 'C-랙', '자재창고', '볼트보관함', '현장대기'];
     return Array.from(new Set([...existing, ...defaults])).sort();
   }, [inventory]);
 
-  // 5. Suppliers/Departments (Defaults + Existing)
   const uniqueSuppliers = useMemo(() => {
-    const existing = inventory.map(i => i.supplier).filter(Boolean);
-    const defaults = ["간호과", "시설과", "영양과", "사무국", "재활치료실", "요양보호사"];
+    const existing = inventory.map((i) => i.supplier).filter(Boolean);
+    const defaults = ['고객사지급', '사급자재', '자재팀', '생산팀'];
     return Array.from(new Set([...existing, ...defaults])).sort();
   }, [inventory]);
 
   useEffect(() => {
     if (item) {
-      setFormData({ ...item });
-    } else {
-      // New Item Defaults
-      // Do not auto-select category to allow datalist to show all options on first click
+      setFormData({
+        ...item,
+        plating: item.plating ?? '',
+        spec: item.spec ?? '',
+        unit: item.unit || 'EA',
+        eaPerUnit: Math.max(1, roundToInt(item.eaPerUnit ?? 1, 1)),
+        qtyPerProduct: item.qtyPerProduct ?? 0,
+        setGroup: item.setGroup ?? '',
+      });
     }
-  }, [item, uniqueCategories]);
+  }, [item]);
+
+  const resolveZoneId = (categoryName: string): string => {
+    const meta = masterData.zoneMeta || {};
+    const matched = Object.values(meta).find((z) => z.displayName === categoryName);
+    return matched?.zoneId || item?.zoneId || categoryName;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const categoryValue = String(formData.category || '').trim();
     const nameValue = String(formData.name || '').trim();
-    const resolvedCategoryOrder = item?.orderCategory ?? categoryOrderMap.get(categoryValue);
-    const resolvedNameOrder = item?.orderName ?? nameOrderMap.get(nameValue);
+    const unitVal = String(formData.unit || 'EA').trim().toUpperCase();
+    const eaPerUnitVal = unitVal === 'EA' ? 1 : Math.max(1, roundToInt(formData.eaPerUnit, 1));
+
     const newItem: InventoryItem = {
       id: item?.id || `INV-${Date.now()}`,
       lastUpdated: new Date().toISOString().split('T')[0],
-      pkgUnit: formData.pkgUnit || '',
-      pkgType: formData.pkgType || '',
+      category: categoryValue,
+      zoneId: resolveZoneId(categoryValue),
+      name: nameValue,
+      plating: String(formData.plating || '').trim(),
+      spec: String(formData.spec || '').trim(),
+      unit: unitVal,
+      eaPerUnit: eaPerUnitVal,
+      qtyPerProduct: Number(formData.qtyPerProduct) || 0,
+      setGroup: String(formData.setGroup || '').trim(),
+      pkgUnit: eaPerUnitVal > 1 ? String(eaPerUnitVal) : '',
+      pkgType: unitVal,
       outerPkg: formData.outerPkg || '',
-      orderCategory: resolvedCategoryOrder,
-      orderName: resolvedNameOrder,
-      ...formData as any,
-      currentStock: roundToOneDecimal(formData.currentStock, 0),
-      safeStock: Math.max(0.1, roundToOneDecimal(formData.safeStock, 1))
+      orderCategory: item?.orderCategory ?? categoryOrderMap.get(categoryValue),
+      orderName: item?.orderName ?? nameOrderMap.get(nameValue),
+      currentStock: roundToInt(formData.currentStock, 0),
+      safeStock: Math.max(0, roundToInt(formData.safeStock, 0)),
+      location: String(formData.location || '').trim(),
+      supplier: String(formData.supplier || '').trim(),
+      note: String(formData.note || '').trim(),
     };
     onSave(newItem);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-
-    setFormData(prev => {
-      const updated = {
-        ...prev,
-        [name]: name === 'currentStock' || name === 'safeStock'
-          ? (value === '' ? '' : Number(value))
-          : value
-      };
-
-      return updated;
-    });
+    const numericFields = new Set(['currentStock', 'safeStock', 'eaPerUnit', 'qtyPerProduct']);
+    setFormData((prev) => ({
+      ...prev,
+      [name]: numericFields.has(name) ? (value === '' ? '' : Number(value)) : value,
+    }));
   };
 
   const handleDelete = () => {
@@ -198,60 +164,55 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
     }
   };
 
-  // Reusable Input with Datalist
   const renderCombobox = (
     name: keyof InventoryItem,
     label: string,
     options: string[],
-    placeholder: string = "",
-    required: boolean = false,
-    small: boolean = false
+    placeholder = '',
+    required = false
   ) => {
-    const listId = `list-${name}`;
-    const val = formData[name] as string;
-
+    const listId = `kdt-list-${name}`;
+    const val = String(formData[name] ?? '');
     return (
       <div className="space-y-1 w-full">
-        <label htmlFor={listId} className={`${small ? 'text-[10px] text-center block' : 'text-xs font-semibold'} text-slate-600 dark:text-slate-400`}>
-          {small ? '' : `${label}`}
-          {small && label}
+        <label htmlFor={listId} className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
         </label>
-        <div className="relative">
-          <input
-            id={listId}
-            type="text"
-            name={name}
-            value={val}
-            onChange={handleChange}
-            list={`${listId}-datalist`}
-            required={required}
-            className={`w-full border border-slate-300 dark:border-slate-600 rounded-lg ${small ? 'px-2 py-1.5 text-xs text-center' : 'px-3 py-2 text-sm'} focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors`}
-            placeholder={placeholder}
-            autoComplete="off"
-          />
-          <datalist id={`${listId}-datalist`}>
-            {options.map((opt, idx) => (
-              <option key={`${opt}-${idx}`} value={opt} />
-            ))}
-          </datalist>
-        </div>
+        <input
+          id={listId}
+          type="text"
+          name={name}
+          value={val}
+          onChange={handleChange}
+          list={`${listId}-datalist`}
+          required={required}
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+        <datalist id={`${listId}-datalist`}>
+          {options.map((opt, idx) => (
+            <option key={`${opt}-${idx}`} value={opt} />
+          ))}
+        </datalist>
       </div>
     );
   };
 
-  // Standard CSS for Select
-  const inputClass = "w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors";
-
   return (
     <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] transition-colors border border-slate-200 dark:border-slate-800">
-
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh] transition-colors border border-slate-200 dark:border-slate-800">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-xl shrink-0">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-            {item ? '재고 상세 정보 수정' : '신규 물품 등록'}
+            {item ? '자재 상세 정보 수정' : '신규 자재 등록'}
           </h2>
-          <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors" aria-label="닫기">
+          <button
+            onClick={onCancel}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+            aria-label="닫기"
+          >
             <X size={20} />
           </button>
         </div>
@@ -259,94 +220,163 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
         {/* Body */}
         <div className="overflow-y-auto p-5 custom-scrollbar bg-white dark:bg-slate-900">
           <form id="stock-form" onSubmit={handleSubmit} className="space-y-4">
-
-            {/* 1. Category & 2. Name */}
+            {/* ZONE & Item Name */}
             <div className="grid grid-cols-2 gap-4">
-              {renderCombobox('category', `1. ${getLabel('category', '대분류')}`, uniqueCategories, '분류 선택/입력', true)}
-              {renderCombobox('name', `2. ${getLabel('name', '품목명')}`, uniqueNames, '품목명 입력', true)}
+              {renderCombobox('category', 'ZONE (대분류)', uniqueCategories, '예: ZONE16_Plus, ZONE18', true)}
+              {renderCombobox('name', '품명 (소분류)', uniqueNames, '예: 육각쎔스볼트, 평와셔', true)}
             </div>
 
-            {/* 3,4,5. Specs */}
-            <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1 mb-2">
+            {/* Plating & Spec */}
+            <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200/70 dark:border-slate-800">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-2">
                 <Layers size={14} className="text-blue-500" />
-                규격 및 구성
+                자재 사양 (도금 · 규격)
               </label>
-              <div className="grid grid-cols-3 gap-2">
-                {renderCombobox('pkgUnit', `3.${getLabel('pkgUnit', '포장단위')}`, [], '예: 10', false, true)}
-                {renderCombobox('pkgType', `4.${getLabel('pkgType', '소포장 개수')}`, [], '예: 장 1팩', false, true)}
-                {renderCombobox('outerPkg', `5.${getLabel('outerPkg', '박스구성')}`, [], '예: 10팩 1박스', false, true)}
+              <div className="grid grid-cols-2 gap-3">
+                {renderCombobox('plating', '도금', uniquePlatings, '예: 3가, SUS (없으면 공란)')}
+                {renderCombobox('spec', '규격', uniqueSpecs, '예: M6*25, M8 (없으면 공란)')}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* 6. 잔량 */}
+            {/* Stock (EA) & Packaging Reference */}
+            <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label htmlFor="currentStock" className="text-xs font-semibold text-slate-600 dark:text-slate-400">6. {getLabel('currentStock', '잔량 (현재고)')}</label>
+                <label htmlFor="currentStock" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  현재고 (EA 정수)<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <input
                   id="currentStock"
                   type="number"
                   name="currentStock"
                   min="0"
-                  step="0.1"
+                  step="1"
                   required
                   value={formData.currentStock}
                   onChange={handleChange}
-                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-xl font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-700 text-right focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-lg font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-700 text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
 
-              {/* 7. 관리단위 */}
               <div className="space-y-1">
-                <label htmlFor="unit" className="text-xs font-semibold text-slate-600 dark:text-slate-400">7. {getLabel('unit', '관리 단위')}</label>
-                <input
+                <label htmlFor="unit" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  공급/표시 단위<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <select
                   id="unit"
-                  type="text"
                   name="unit"
-                  value={formData.unit}
+                  value={formData.unit || 'EA'}
                   onChange={handleChange}
-                  className={inputClass}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  {uniqueUnits.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="eaPerUnit" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  1단위당 EA (참고)
+                </label>
+                <input
+                  id="eaPerUnit"
+                  type="number"
+                  name="eaPerUnit"
+                  min="1"
+                  step="1"
+                  disabled={(formData.unit || 'EA').toUpperCase() === 'EA'}
+                  value={(formData.unit || 'EA').toUpperCase() === 'EA' ? 1 : formData.eaPerUnit}
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-right font-semibold bg-white dark:bg-slate-700 text-slate-900 dark:text-white disabled:opacity-50"
                 />
               </div>
             </div>
 
-            {/* 적정재고 (상세 설정용) */}
-            <div className="space-y-1 pt-2">
-              <label htmlFor="safeStock" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex justify-between">
-                <span>{getLabel('safeStock', '적정재고')} (미달 시 경고 표시)</span>
+            {(formData.unit || 'EA').toUpperCase() !== 'EA' && Number(formData.eaPerUnit) > 1 && (
+              <div className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/30 px-3 py-1.5 rounded-lg border border-indigo-200/70 dark:border-indigo-900">
+                화면 표시 미리보기:{' '}
+                <strong>{formatStockWithUnit(Number(formData.currentStock) || 0, formData.unit, Number(formData.eaPerUnit))}</strong>
+              </div>
+            )}
+
+            {/* Safe Stock & Location & Supplier */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="safeStock" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  적정재고 (EA)
+                </label>
+                <input
+                  id="safeStock"
+                  type="number"
+                  name="safeStock"
+                  min="0"
+                  step="1"
+                  value={formData.safeStock}
+                  onChange={handleChange}
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-right bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  placeholder="0 (미설정)"
+                />
+              </div>
+              {renderCombobox('location', '보관위치', uniqueLocations, '예: A-랙, 자재창고')}
+              {renderCombobox('supplier', '공급구분/부서', uniqueSuppliers, '예: 고객사지급')}
+            </div>
+
+            {/* Phase 2 Pre-built BOM Fields */}
+            <div className="bg-slate-50/80 dark:bg-slate-800/30 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mb-2">
+                <SlidersHorizontal size={13} className="text-indigo-500" />
+                생산 연동 기준 (2차 BOM 스키마 선반영)
               </label>
-              <input
-                id="safeStock"
-                type="number"
-                name="safeStock"
-                min="0.1"
-                step="0.1"
-                required
-                value={formData.safeStock}
-                onChange={handleChange}
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800"
-                placeholder="최소 0.1 이상"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label htmlFor="qtyPerProduct" className="text-xs text-slate-500 dark:text-slate-400">
+                    완제품 1대당 소요량 (1 SET)
+                  </label>
+                  <input
+                    id="qtyPerProduct"
+                    type="number"
+                    name="qtyPerProduct"
+                    min="0"
+                    step="1"
+                    value={formData.qtyPerProduct}
+                    onChange={handleChange}
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm text-right bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                    placeholder="예: 4"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="setGroup" className="text-xs text-slate-500 dark:text-slate-400">
+                    소속 SET 그룹명 (선택)
+                  </label>
+                  <input
+                    id="setGroup"
+                    type="text"
+                    name="setGroup"
+                    value={formData.setGroup || ''}
+                    onChange={handleChange}
+                    className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                    placeholder="예: 육각볼트 SET M6*25"
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Location */}
-              {renderCombobox('location', getLabel('location', '보관장소'), uniqueLocations, '보관장소 입력')}
-
-              {/* Supplier/Department */}
-              {renderCombobox('supplier', getLabel('supplier', '사용부서'), uniqueSuppliers, '사용부서 입력')}
-            </div>
-
+            {/* Note */}
             <div className="space-y-1">
-              <label htmlFor="note" className="text-xs font-semibold text-slate-600 dark:text-slate-400">{getLabel('note', '비고')}</label>
+              <label htmlFor="note" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                비고 (소포장 pkg 내역 등 참고)
+              </label>
               <textarea
                 id="note"
                 name="note"
-                value={formData.note}
+                value={formData.note || ''}
                 onChange={handleChange}
                 rows={2}
+                placeholder="예: 4000x9pkg + 1000 = 37,000ea"
                 className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors resize-none"
-              ></textarea>
+              />
             </div>
           </form>
         </div>
@@ -365,7 +395,6 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
               </button>
             )}
           </div>
-
           <div className="flex gap-3">
             <button
               type="button"
@@ -380,7 +409,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
               className="px-6 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold flex items-center gap-2 text-sm transition-colors shadow-lg shadow-blue-500/20"
             >
               <Check size={18} />
-              확인
+              저장
             </button>
           </div>
         </div>
