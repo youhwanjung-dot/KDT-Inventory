@@ -363,6 +363,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
       {showMasterDataManager && (
         <MasterDataManagerModal
           inventory={inventory}
+          transactions={transactions}
           masterData={masterData}
           onMasterDataChange={setMasterData}
           onUpdateInventory={async (newInventory, changedItems, deleteItemIds) => {
@@ -401,52 +402,60 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               setAlertModal({ title: '저장 실패', message: '기준정보 저장 실패: ' + e });
             }
           }}
-          onCreateItem={async (category, name) => {
-            if (inventory.some((item) => item.category === category && item.name === name)) return;
-            try {
-              const newItem: InventoryItem = {
-                id: `INV-${Date.now()}`,
-                category,
-                zoneId: category,
-                name,
-                plating: '',
-                spec: '',
-                pkgUnit: '',
-                pkgType: '',
-                outerPkg: '',
-                unit: 'EA',
-                eaPerUnit: 1,
-                qtyPerProduct: 0,
-                setGroup: '',
-                currentStock: 0,
-                safeStock: 0,
-                location: '',
-                supplier: '',
-                note: '',
-                lastUpdated: new Date().toISOString().split('T')[0],
-                orderCategory: undefined,
-                orderName: undefined,
-              };
-              await api.saveItem(newItem);
+          onCreateItems={async (categories, name) => {
+            const missingItems = categories
+              .filter((category) => !inventory.some((item) => item.category === category && item.name === name))
+              .map((category): InventoryItem => {
+                const zoneMeta = Object.values(masterData.zoneMeta || {}).find(
+                  (meta) => meta.displayName === category
+                );
+                return {
+                  id: `INV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                  category,
+                  zoneId: zoneMeta?.zoneId || category,
+                  name,
+                  plating: '',
+                  spec: '',
+                  pkgUnit: '',
+                  pkgType: '',
+                  outerPkg: '',
+                  unit: 'EA',
+                  eaPerUnit: 1,
+                  qtyPerProduct: 0,
+                  setGroup: '',
+                  currentStock: 0,
+                  safeStock: 0,
+                  location: '',
+                  supplier: '',
+                  note: '',
+                  lastUpdated: new Date().toISOString().split('T')[0],
+                  orderCategory: undefined,
+                  orderName: undefined,
+                };
+              });
+            if (missingItems.length === 0) return;
 
-              const carryOverTx: InventoryTransaction = {
-                id: `TX-${Date.now()}`,
-                itemId: newItem.id,
-                itemName: name,
-                category,
-                zoneId: category,
-                type: 'IN' as const,
-                date: `${new Date().getFullYear()}-01-01`,
-                quantity: 0,
-                worker: '시스템',
-                department: '',
-                reason: '재고이월',
-                currentStockSnapshot: 0,
-              };
-              await api.saveTransaction(carryOverTx);
-              ActionLogger.log('Auto-created item from Master Data', { category, name });
-            } catch (e) {
-              console.error('Failed to auto-create item:', e);
+            const results = await Promise.allSettled(missingItems.map((item) => api.saveItem(item)));
+            const savedItems = missingItems.filter((_, index) => results[index].status === 'fulfilled');
+            if (savedItems.length > 0) {
+              setInventory((prev) => {
+                const existingKeys = new Set(prev.map((item) => `${item.category}\u0000${item.name}`));
+                return [
+                  ...prev,
+                  ...savedItems.filter((item) => !existingKeys.has(`${item.category}\u0000${item.name}`)),
+                ];
+              });
+              ActionLogger.log('Auto-created shared items from Master Data', {
+                name,
+                categories: savedItems.map((item) => item.category),
+              });
+            }
+
+            const failedCategories = missingItems
+              .filter((_, index) => results[index].status === 'rejected')
+              .map((item) => item.category);
+            if (failedCategories.length > 0) {
+              throw new Error(`다음 ZONE의 재고 품목 저장에 실패했습니다: ${failedCategories.join(', ')}`);
             }
           }}
           onClose={() => setShowMasterDataManager(false)}

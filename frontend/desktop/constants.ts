@@ -1,6 +1,5 @@
 import { InventoryItem, User, InventoryTransaction } from './types';
-import { initialData } from './initialData';
-import { INITIAL_TRANSACTIONS as initialTxData } from './initialTransactions';
+import { PDF_VERIFIED_INVENTORY, PDF_VERIFIED_TRANSACTIONS } from './pdfVerifiedSeed';
 
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIMESTAMP__: string;
@@ -12,8 +11,8 @@ export const BUILD_TIMESTAMP: string = __BUILD_TIMESTAMP__;
 export const MOCKUP_MODE: boolean = typeof __MOCKUP_MODE__ !== 'undefined' ? __MOCKUP_MODE__ : false;
 export const STORAGE_MODE: 'Cloud' | 'Local' = typeof __STORAGE_MODE__ !== 'undefined' ? __STORAGE_MODE__ : 'Cloud';
 
-export const INITIAL_INVENTORY: InventoryItem[] = initialData;
-export const INITIAL_TRANSACTIONS: InventoryTransaction[] = initialTxData;
+export const INITIAL_INVENTORY: InventoryItem[] = PDF_VERIFIED_INVENTORY;
+export const INITIAL_TRANSACTIONS: InventoryTransaction[] = PDF_VERIFIED_TRANSACTIONS;
 
 // KDT Default Users (Q11 + C3 confirmed)
 export const INITIAL_USERS: User[] = [

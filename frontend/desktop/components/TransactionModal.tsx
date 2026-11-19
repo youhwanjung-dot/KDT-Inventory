@@ -35,7 +35,7 @@ interface TransactionModalProps {
 
 const DEPARTMENTS: string[] = [...USER_DEPARTMENTS];
 const REASONS_IN = ['자재입고', '추가입고', '반품입고', '직접입력'];
-const REASONS_OUT = ['라인불출', '추가불출', '불량교체', '직접입력'];
+const REASONS_OUT = ['라인불출', '추가불출', '불량폐기', '직접입력'];
 
 const resolveTxPermission = (u: UserType): TxPermission => {
   if (u.role === 'admin') return 'ALL';

@@ -1,5 +1,6 @@
 import { InventoryItem } from './types';
 
+// Legacy pre-PDF seed retained for reference. Active seeds are in pdfVerifiedSeed.ts.
 // KDT initial verified dataset (ZONE16_Plus: 10 items / ZONE18: 22 items = 32 items)
 // Extracted from _user/KDT-Inventory.xlsx (integer EA basis, C1/C2/Q7 applied)
 export const initialData: InventoryItem[] = [

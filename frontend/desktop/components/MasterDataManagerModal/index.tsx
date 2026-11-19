@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   X,
   Box,
@@ -22,10 +22,11 @@ import AnalysisConfirmModal from './AnalysisConfirmModal';
 
 const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   inventory,
+  transactions,
   masterData: masterDataProp,
   onMasterDataChange,
   onUpdateInventory,
-  onCreateItem,
+  onCreateItems,
   onClose,
 }) => {
   const [activeTabKey, setActiveTabKey] = useState<TargetField>('category');
@@ -37,6 +38,9 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
 
   const [newCategoryValue, setNewCategoryValue] = useState('');
   const [newNameValue, setNewNameValue] = useState('');
+  const [isAddingSubName, setIsAddingSubName] = useState(false);
+  const [addSubNameError, setAddSubNameError] = useState('');
+  const newNameInputRef = useRef<HTMLInputElement>(null);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [isOrderMode, setIsOrderMode] = useState(false);
   const [draggingValue, setDraggingValue] = useState<string | null>(null);
@@ -160,21 +164,45 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   };
 
   // Add new item name inside drilled ZONE
-  const handleAddSubName = () => {
-    if (!drillCategory) return;
+  const handleAddSubName = async () => {
+    if (!drillCategory || isAddingSubName) return;
     const trimmed = newNameValue.trim();
-    if (!trimmed) return;
-    persistMasterData((prev) => {
-      const existing = prev.namesByCategory[drillCategory] || [];
-      if (existing.includes(trimmed)) return prev;
-      return {
-        ...prev,
-        namesByCategory: { ...prev.namesByCategory, [drillCategory]: [...existing, trimmed] },
-        nameOrder: prev.nameOrder.includes(trimmed) ? prev.nameOrder : [...prev.nameOrder, trimmed],
-      };
+    if (!trimmed) {
+      setAddSubNameError('신규 품명을 입력한 후 품목 추가를 눌러 주세요.');
+      newNameInputRef.current?.focus();
+      return;
+    }
+    const categories = Array.from(new Set(categoryOptions));
+    if (!categories.includes(drillCategory)) categories.push(drillCategory);
+
+    setIsAddingSubName(true);
+    setAddSubNameError('');
+    const nextNamesByCategory = { ...customMasterData.namesByCategory };
+    categories.forEach((category) => {
+      const existing = nextNamesByCategory[category] || [];
+      if (!existing.includes(trimmed)) {
+        nextNamesByCategory[category] = [...existing, trimmed];
+      }
     });
-    if (onCreateItem) onCreateItem(drillCategory, trimmed);
-    setNewNameValue('');
+    const nextMasterData: MasterData = {
+      ...customMasterData,
+      namesByCategory: nextNamesByCategory,
+      nameOrder: customMasterData.nameOrder.includes(trimmed)
+        ? customMasterData.nameOrder
+        : [...customMasterData.nameOrder, trimmed],
+    };
+    try {
+      await api.saveMasterData(nextMasterData);
+      setCustomMasterData(nextMasterData);
+      onMasterDataChange(nextMasterData);
+      await onCreateItems?.(categories, trimmed);
+      setNewNameValue('');
+    } catch (error) {
+      console.error('Failed to create shared inventory items:', error);
+      setAddSubNameError(error instanceof Error ? error.message : '품목 등록에 실패했습니다.');
+    } finally {
+      setIsAddingSubName(false);
+    }
   };
 
   // Save ZONE alias / customer / plannedProductionQty
@@ -259,6 +287,22 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
       }
       return String((item as any)[effectiveTabKey] || '') === targetValue;
     });
+    const inventoryById = new Map(inventory.map((item) => [item.id, item]));
+    const relatedTransactions =
+      effectiveTabKey === 'name' && drillCategory
+        ? transactions.filter((tx) => {
+            const linkedItem = inventoryById.get(tx.itemId);
+            if (linkedItem) {
+              return linkedItem.name === targetValue && linkedItem.category !== drillCategory;
+            }
+            return tx.itemName === targetValue && tx.category !== drillCategory;
+          })
+        : [];
+    const historyByCategory = new Map<string, number>();
+    relatedTransactions.forEach((tx) => {
+      const category = tx.category || tx.zoneId || '기타';
+      historyByCategory.set(category, (historyByCategory.get(category) || 0) + 1);
+    });
     setAnalysis({
       type: effectiveTabKey === 'name' ? 'DELETE_SUBCATEGORY' : 'DELETE',
       field: effectiveTabKey,
@@ -266,6 +310,14 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
       newValue: '',
       affectedCount: affected.length,
       affectedSample: affected.slice(0, 8).map((i) => `[${i.category}] ${i.name} ${i.spec || ''}`),
+      relatedHistory:
+        relatedTransactions.length > 0 && drillCategory
+          ? {
+              currentCategory: drillCategory,
+              totalTransactions: relatedTransactions.length,
+              byCategory: Array.from(historyByCategory, ([category, count]) => ({ category, count })),
+            }
+          : undefined,
     });
   };
 
@@ -527,22 +579,35 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
             {effectiveTabKey === 'name' && drillCategory && (
               <div className="flex items-center gap-2">
                 <input
+                  ref={newNameInputRef}
                   type="text"
                   value={newNameValue}
-                  onChange={(e) => setNewNameValue(e.target.value)}
+                  disabled={isAddingSubName}
+                  onChange={(e) => {
+                    setNewNameValue(e.target.value);
+                    if (addSubNameError) setAddSubNameError('');
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddSubName()}
                   placeholder="신규 품명 추가"
+                  aria-invalid={Boolean(addSubNameError)}
+                  aria-describedby={addSubNameError ? 'add-sub-name-error' : undefined}
                   className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white w-52"
                 />
                 <button
                   onClick={handleAddSubName}
-                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1"
+                  disabled={isAddingSubName}
+                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Plus size={15} /> 품목 추가
+                  <Plus size={15} /> {isAddingSubName ? '등록 중...' : '품목 추가'}
                 </button>
               </div>
             )}
           </div>
+          {addSubNameError && (
+            <p id="add-sub-name-error" className="px-6 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100" role="alert">
+              {addSubNameError}
+            </p>
+          )}
 
           {/* List Body */}
           <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-2">

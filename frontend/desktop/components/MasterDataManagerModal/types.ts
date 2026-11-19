@@ -1,9 +1,10 @@
 import React from 'react';
 import { Tag, Component, MapPin, Layers } from 'lucide-react';
-import { InventoryItem, MasterData } from '../../types';
+import { InventoryItem, InventoryTransaction, MasterData } from '../../types';
 
 export interface MasterDataManagerModalProps {
   inventory: InventoryItem[];
+  transactions: InventoryTransaction[];
   masterData: MasterData;
   onMasterDataChange: (md: MasterData) => void;
   onUpdateInventory: (
@@ -11,7 +12,7 @@ export interface MasterDataManagerModalProps {
     changedItems: InventoryItem[],
     deleteItemIds?: string[]
   ) => void;
-  onCreateItem?: (category: string, name: string) => void;
+  onCreateItems?: (categories: string[], name: string) => Promise<void>;
   onClose: () => void;
 }
 
@@ -39,4 +40,9 @@ export interface AnalysisResult {
   affectedCount: number;
   affectedSample: string[];
   moveSourceCategories?: string[];
+  relatedHistory?: {
+    currentCategory: string;
+    totalTransactions: number;
+    byCategory: Array<{ category: string; count: number }>;
+  };
 }

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { AnalysisResult } from './types';
 
@@ -60,6 +60,26 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
             </div>
           )}
 
+          {analysis.relatedHistory && (
+            <div
+              className="p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-300 dark:border-amber-800 space-y-2"
+              role="alert"
+            >
+              <p className="font-bold text-amber-800 dark:text-amber-200">
+                다른 대분류에 동일 품목의 입출고 이력 {analysis.relatedHistory.totalTransactions}건이 있습니다.
+              </p>
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                {analysis.relatedHistory.byCategory
+                  .map(({ category, count }) => `${category} ${count}건`)
+                  .join(', ')}
+              </p>
+              <p className="text-xs text-amber-900 dark:text-amber-100">
+                {analysis.relatedHistory.currentCategory}의 품목과 해당 이력만 삭제되며, 다른 대분류의 이력은 유지됩니다.
+                계속하시겠습니까?
+              </p>
+            </div>
+          )}
+
           <p>
             영향을 받는 자재 품목: <strong className="text-orange-600 dark:text-orange-400">{analysis.affectedCount}건</strong>
           </p>
@@ -94,7 +114,7 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
               isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'
             }`}
           >
-            {isDanger ? '삭제 실행' : '변경 적용'}
+            {analysis.relatedHistory ? '다른 대분류 이력 유지 후 삭제' : isDanger ? '삭제 실행' : '변경 적용'}
           </button>
         </div>
       </div>

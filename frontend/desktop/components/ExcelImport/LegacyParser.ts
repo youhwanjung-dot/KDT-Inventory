@@ -10,15 +10,6 @@ const COMP_NAME_MAP: Record<string, string> = {
     '평와셔': '평와셔'
 };
 
-const parseRealQtyFromNote = (note: string, fallback: number): number => {
-    if (!note) return Math.round(fallback || 0);
-    const m = String(note).match(/=\s*([\d,]+)\s*ea/i);
-    if (m && m[1]) {
-        return parseInt(m[1].replace(/,/g, ''), 10) || Math.round(fallback || 0);
-    }
-    return Math.round(fallback || 0);
-};
-
 const toIsoDate = (val: any, fallback: string): string => {
     if (!val && val !== 0) return fallback;
     if (typeof val === 'number' && val > 20000 && val < 90000) {
@@ -36,7 +27,7 @@ const toIsoDate = (val: any, fallback: string): string => {
  * KDT INBOUND SHEET PARSER (`ZONE16_Plus_Inbound`, `ZONE18_Inbound`)
  * Columns: [No | 입고일 | 품명 | 도금 | 규격 | 단위 | 1 SET | 수량(EA) | 비고]
  * Handles parent `육각볼트 SET` rows + `ㅁ 볼트/너트/스프링 와셔/평와셔` child rows,
- * real inspected quantities in note (`=8200ea`), and duplicate item merging (e.g., ZONE18 M8 flat washer 37,000 + 9,100 = 46,100 EA).
+ * PDF quantity-column values are authoritative; notes remain reference-only. Duplicate item rows are merged (e.g., ZONE18 M8 flat washer 37,000 + 9,100 = 46,100 EA).
  */
 export const processKdtInboundSheet = (
     data: any[][],
@@ -180,7 +171,7 @@ export const processKdtInboundSheet = (
 
             // 3. Standard item row
             curSetGroup = '';
-            const realQty = parseRealQtyFromNote(note, hVal);
+            const realQty = Math.round(hVal || 0);
             let eaPerUnit = 1;
             let qtyPerProd = gVal > 0 ? Math.round(gVal) : 1;
             if ((unit.toUpperCase() === 'SET' || unit.toUpperCase() === 'BOX') && gVal >= 1 && realQty > 0 && realQty % Math.round(gVal) === 0) {

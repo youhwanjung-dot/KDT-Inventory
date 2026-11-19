@@ -58,7 +58,8 @@ export const formatItemDisplayKey = (
   const name = (item.name || '').trim();
   const parts = [item.plating?.trim(), item.spec?.trim()].filter(Boolean);
   if (parts.length === 0) return name;
-  return `${name} [${parts.join('/')}]`;
+  const suffix = ` [${parts.join('/')}]`;
+  return name.endsWith(suffix) ? name : `${name}${suffix}`;
 };
 
 // Backward-compatible aliases for migrated Asan components (integer EA precision)
@@ -84,4 +85,3 @@ export const formatFlexibleDecimal = (
 
 /** Alias for formatStockWithUnit (for compatibility) */
 export const formatStockWithRef = formatStockWithUnit;
-

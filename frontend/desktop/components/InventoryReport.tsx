@@ -1,5 +1,5 @@
-﻿import React, { useMemo, useState, useRef } from 'react';
-import { X, File, AlertTriangle, Package, Clock, Repeat, Wand2, Loader2, HardDrive, FileText } from 'lucide-react';
+import React, { useMemo, useState, useRef } from 'react';
+import { X, AlertTriangle, Package, Clock, Wand2, Loader2, HardDrive, FileText } from 'lucide-react';
 import { InventoryItem, InventoryTransaction } from '../types';
 import ReactMarkdown from 'react-markdown';
 import html2canvas from 'html2canvas';
@@ -12,6 +12,33 @@ interface ReportProps {
   onClose: () => void;
 }
 
+const reportPrintStyle = `
+  @page inventory-analysis {
+    size: A3 portrait;
+    margin: 10mm;
+  }
+  @media print {
+    .report-page {
+      page: inventory-analysis;
+      width: 277mm !important;
+      min-height: 400mm !important;
+      height: 400mm !important;
+      padding: 10mm !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      break-after: page !important;
+      page-break-after: always !important;
+    }
+    .report-page > header {
+      display: flex !important;
+    }
+    .report-page:last-child {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+  }
+`;
+
 const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
@@ -19,9 +46,19 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
   const reportContentRef = useRef<HTMLDivElement>(null);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
 
+  // Older Excel imports stored 1 as a missing safe-stock placeholder; treat it like absent data.
+  const analysisItems = useMemo(() => items.map((item) => {
+    const safeStock = Number(item.safeStock) || 0;
+    const legacyMissingValue = safeStock === 1 && item.id.startsWith('IMP-');
+    return {
+      ...item,
+      safeStock: safeStock > 0 && !legacyMissingValue ? safeStock : Math.max(0, Number(item.currentStock) || 0),
+    };
+  }), [items]);
+
   // --- Analysis Logic (All limited to Top 5) ---
-  const shortageData = useMemo(() => items.filter(i => i.safeStock > 0 && i.currentStock < i.safeStock).map(i => ({...i, shortage: i.safeStock - i.currentStock})).sort((a,b) => b.shortage - a.shortage).slice(0, 5), [items]);
-  const overstockData = useMemo(() => items.filter(i => i.safeStock > 0 && i.currentStock > i.safeStock * 2.5).map(i => ({...i, excess: i.currentStock - i.safeStock, ratio: (i.currentStock / i.safeStock) * 100})).sort((a,b) => b.ratio - a.ratio).slice(0, 5), [items]);
+  const shortageData = useMemo(() => analysisItems.filter(i => i.currentStock < i.safeStock).map(i => ({...i, shortage: i.safeStock - i.currentStock})).sort((a,b) => b.shortage - a.shortage).slice(0, 5), [analysisItems]);
+  const overstockData = useMemo(() => analysisItems.filter(i => i.safeStock > 0 && i.currentStock > i.safeStock * 2.5).map(i => ({...i, excess: i.currentStock - i.safeStock, ratio: ((i.currentStock - i.safeStock) / i.safeStock) * 100})).sort((a,b) => b.ratio - a.ratio).slice(0, 5), [analysisItems]);
   const deadStockData = useMemo(() => {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
@@ -58,7 +95,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
     setIsGeneratingPdf(true);
     try {
       await document.fonts.ready;
-      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdf = new jsPDF('p', 'mm', 'a3');
       const pageElements = reportContainer.querySelectorAll('.report-page');
       
       for (let i = 0; i < pageElements.length; i++) {
@@ -115,6 +152,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/50 dark:bg-black/70 backdrop-blur-sm flex flex-col items-center p-0 printable-area-container animate-fade-in">
+        <style>{reportPrintStyle}</style>
         <div className="w-full bg-slate-50 dark:bg-slate-900 flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-800 no-print sticky top-0 z-10">
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Wand2 size={20} className="text-violet-500" /> AI 재고 분석 리포트</h2>
             <div className="flex items-center gap-3">
@@ -127,7 +165,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
         <div className="w-full flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-100 dark:bg-slate-950">
           <div ref={reportContentRef} className="flex flex-col items-center gap-8">
             {/* Page 1: Data Analysis */}
-            <div className="report-page w-[210mm] min-h-[297mm] bg-white dark:bg-slate-800 shadow-lg p-10 text-slate-800 dark:text-slate-200 rounded-lg flex flex-col">
+            <div className="report-page w-[297mm] min-h-[420mm] bg-white dark:bg-slate-800 shadow-lg p-10 text-slate-800 dark:text-slate-200 rounded-lg flex flex-col">
               <header className="break-after-avoid pb-4 border-b-2 border-slate-800 dark:border-slate-300">
                   <div className="flex justify-between items-start">
                       <div>
@@ -135,12 +173,12 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
                           <p className="text-sm text-slate-600 dark:text-slate-400 print:text-gray-600">자재관리 데이터 분석 리포트</p>
                       </div>
                       <div className="text-right text-xs text-slate-500 dark:text-slate-400 print:text-gray-500">
-                          <p>분석일자: {new Date('2025-12-18').toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                          <p>분석일자: {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                           <p>Generated by System AI</p>
                       </div>
                   </div>
               </header>
-              <main className="py-8 flex-1 grid grid-cols-12 gap-x-8">
+              <main className="py-10 flex-1 grid grid-cols-12 gap-x-10">
                 <div className="col-span-4 space-y-6">
                     <h2 className="text-base font-bold text-slate-800 dark:text-slate-200 print:text-black">데이터 요약</h2>
                     <div className="grid grid-cols-1 divide-y divide-slate-200 dark:divide-slate-700 border rounded-lg shadow-sm bg-white dark:bg-slate-800 print:bg-white">
@@ -152,26 +190,25 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
                 </div>
                 <div className="col-span-8 space-y-8">
                     <ReportSection title={<><span className="text-red-600">1.</span> 긴급 발주 요망 품목 (Top 5)</>}>
-                        <table className="w-full text-xs text-left"><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium">품목명</th><th className="p-2 font-medium">카테고리</th><th className="p-2 font-medium text-center">현재고</th><th className="p-2 font-medium text-center">적정재고</th><th className="p-2 font-medium text-center text-red-600">부족분</th></tr></thead>
-                        <tbody>{shortageData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid bg-red-50 dark:bg-red-900/20 print:bg-white"><td className="p-2 font-medium">{item.name}</td><td className="p-2">{item.category}</td><td className="p-2 text-center font-bold text-red-600">{item.currentStock.toFixed(1)}</td><td className="p-2 text-center">{item.safeStock.toFixed(1)}</td>{/* FIX: Changed `item.shortage.toFixed(0) * -1` to `(-item.shortage).toFixed(0)` to perform arithmetic on a number before converting to a string. */}
-{/* FIX: Changed item.shortage.toFixed(0) * -1 to (-item.shortage).toFixed(0) to perform arithmetic on a number before converting to a string. */}
-<td className="p-2 text-center font-bold text-red-600">{(-item.shortage).toFixed(1)}</td></tr>))}
+                        <table className="w-full table-fixed text-xs text-left"><colgroup><col style={{ width: '27%' }} /><col style={{ width: '23%' }} /><col style={{ width: '16%' }} /><col style={{ width: '17%' }} /><col style={{ width: '17%' }} /></colgroup><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium whitespace-nowrap">품목명</th><th className="p-2 font-medium whitespace-nowrap">카테고리</th><th className="p-2 font-medium text-center whitespace-nowrap">현재고</th><th className="p-2 font-medium text-center whitespace-nowrap">적정재고</th><th className="p-2 font-medium text-center text-red-600 whitespace-nowrap">부족분</th></tr></thead>
+                        <tbody>{shortageData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid bg-red-50 dark:bg-red-900/20 print:bg-white"><td title={item.name} className="p-2 font-medium whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</td><td title={item.category} className="p-2 whitespace-nowrap overflow-hidden text-ellipsis">{item.category}</td><td className="p-2 text-center font-bold text-red-600 whitespace-nowrap">{item.currentStock.toFixed(1)}</td><td className="p-2 text-center whitespace-nowrap">{item.safeStock.toFixed(1)}</td>
+<td className="p-2 text-center font-bold text-red-600 whitespace-nowrap">{(-item.shortage).toFixed(1)}</td></tr>))}
                         {shortageData.length === 0 && <tr><td colSpan={5} className="p-4 text-center text-slate-500">데이터 없음</td></tr>}</tbody></table>
                     </ReportSection>
                     <ReportSection title={<><span className="text-orange-600">2.</span> 과다 보유 / 공간 낭비 (Top 5)</>}>
-                        <table className="w-full text-xs text-left"><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium">품목명</th><th className="p-2 font-medium">카테고리</th><th className="p-2 font-medium text-center">현재고</th><th className="p-2 font-medium text-center">적정재고</th><th className="p-2 font-medium text-center text-orange-600">초과 수량</th><th className="p-2 font-medium text-center text-orange-600">초과율</th></tr></thead>
-                        <tbody>{overstockData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td className="p-2 font-medium">{item.name}</td><td className="p-2">{item.category}</td><td className="p-2 text-center font-bold">{item.currentStock.toFixed(1)}</td><td className="p-2 text-center">{item.safeStock.toFixed(1)}</td><td className="p-2 text-center font-bold text-orange-600">+ {item.excess.toFixed(1)}</td><td className="p-2 text-center font-bold text-orange-600">{item.ratio.toFixed(1)}%</td></tr>))}
+                        <table className="w-full table-fixed text-xs text-left"><colgroup><col style={{ width: '25%' }} /><col style={{ width: '19%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} /><col style={{ width: '18%' }} /><col style={{ width: '10%' }} /></colgroup><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium whitespace-nowrap">품목명</th><th className="p-2 font-medium whitespace-nowrap">카테고리</th><th className="p-2 font-medium text-center whitespace-nowrap">현재고</th><th className="p-2 font-medium text-center whitespace-nowrap">적정재고</th><th className="p-2 font-medium text-center text-orange-600 whitespace-nowrap">초과 수량</th><th className="p-2 font-medium text-center text-orange-600 whitespace-nowrap">초과율</th></tr></thead>
+                        <tbody>{overstockData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td title={item.name} className="p-2 font-medium whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</td><td title={item.category} className="p-2 whitespace-nowrap overflow-hidden text-ellipsis">{item.category}</td><td className="p-2 text-center font-bold whitespace-nowrap">{item.currentStock.toFixed(1)}</td><td className="p-2 text-center whitespace-nowrap">{item.safeStock.toFixed(1)}</td><td className="p-2 text-center font-bold text-orange-600 whitespace-nowrap">+ {item.excess.toFixed(1)}</td><td className="p-2 text-center font-bold text-orange-600 whitespace-nowrap">{item.ratio.toFixed(1)}%</td></tr>))}
                         {overstockData.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-500">데이터 없음</td></tr>}</tbody></table>
                     </ReportSection>
                     <div className="grid grid-cols-1 gap-8">
                         <ReportSection title={<><span className="text-orange-600">3.</span> 장기 미사용 (Top 5, 90일 이상)</>}>
-                            <table className="w-full text-xs text-left"><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium">품목명</th><th className="p-2 font-medium">카테고리</th><th className="p-2 font-medium text-center">현재고</th><th className="p-2 font-medium">최종출고일</th></tr></thead>
-                            <tbody>{deadStockData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td className="p-2 font-medium">{item.name}</td><td className="p-2">{item.category}</td><td className="p-2 text-center font-bold">{item.currentStock.toFixed(1)}</td><td className="p-2 text-slate-500 text-xs">{item.lastOutDate}</td></tr>))}
+                            <table className="w-full table-fixed text-xs text-left"><colgroup><col style={{ width: '32%' }} /><col style={{ width: '25%' }} /><col style={{ width: '18%' }} /><col style={{ width: '25%' }} /></colgroup><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium whitespace-nowrap">품목명</th><th className="p-2 font-medium whitespace-nowrap">카테고리</th><th className="p-2 font-medium text-center whitespace-nowrap">현재고</th><th className="p-2 font-medium whitespace-nowrap">최종출고일</th></tr></thead>
+                            <tbody>{deadStockData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td title={item.name} className="p-2 font-medium whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</td><td title={item.category} className="p-2 whitespace-nowrap overflow-hidden text-ellipsis">{item.category}</td><td className="p-2 text-center font-bold whitespace-nowrap">{item.currentStock.toFixed(1)}</td><td className="p-2 text-slate-500 text-xs whitespace-nowrap">{item.lastOutDate}</td></tr>))}
                             {deadStockData.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">데이터 없음</td></tr>}</tbody></table>
                         </ReportSection>
                         <ReportSection title={<><span className="text-green-600">4.</span> 재고 회전율 (Top 5)</>}>
-                            <table className="w-full text-xs text-left"><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium">품목명</th><th className="p-2 font-medium">카테고리</th><th className="p-2 font-medium text-center">누적 출고량</th></tr></thead>
-                            <tbody>{turnoverData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td className="p-2 font-medium">{item.name}</td><td className="p-2">{item.category}</td><td className="p-2 text-center font-bold">{item.outCount} 회</td></tr>))}
+                            <table className="w-full table-fixed text-xs text-left"><colgroup><col style={{ width: '38%' }} /><col style={{ width: '32%' }} /><col style={{ width: '30%' }} /></colgroup><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium whitespace-nowrap">품목명</th><th className="p-2 font-medium whitespace-nowrap">카테고리</th><th className="p-2 font-medium text-center whitespace-nowrap">누적 출고량</th></tr></thead>
+                            <tbody>{turnoverData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td title={item.name} className="p-2 font-medium whitespace-nowrap overflow-hidden text-ellipsis">{item.name}</td><td title={item.category} className="p-2 whitespace-nowrap overflow-hidden text-ellipsis">{item.category}</td><td className="p-2 text-center font-bold whitespace-nowrap">{item.outCount} 회</td></tr>))}
                             {turnoverData.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-slate-500">출고 데이터 없음</td></tr>}</tbody></table>
                         </ReportSection>
                     </div>
@@ -181,7 +218,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
             </div>
             
             {/* Page 2: AI Insight */}
-            <div className="report-page w-[210mm] min-h-[297mm] bg-white dark:bg-slate-800 shadow-lg p-10 text-slate-800 dark:text-slate-200 rounded-lg flex flex-col">
+            <div className="report-page w-[297mm] min-h-[420mm] bg-white dark:bg-slate-800 shadow-lg p-10 text-slate-800 dark:text-slate-200 rounded-lg flex flex-col">
               <main className="py-8 flex-1 flex flex-col">
                 <div className="pt-6 border-t-2 border-slate-800 dark:border-slate-300 flex-1 flex flex-col">
                     <ReportSection title="✨ 전문가 종합 의견 (AI Insight)">

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { read, utils } from 'xlsx';
 import { FileSpreadsheet, ArrowRight } from 'lucide-react';
 import { InventoryItem, Category } from '../../types';
@@ -352,7 +352,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                 outerPkg: rowObj[mapping.outerPkg] ? String(rowObj[mapping.outerPkg]) : '',
                 unit: rowObj[mapping.unit] || 'EA',
                 currentStock: cleanNumber(stockRaw),
-                safeStock: mapping.safeStock ? Math.max(1, cleanNumber(rowObj[mapping.safeStock])) : 1,
+                safeStock: mapping.safeStock ? Math.max(0, cleanNumber(rowObj[mapping.safeStock])) : 0,
                 location: rowObj[mapping.location] || '',
                 supplier: rowObj[mapping.supplier] || '',
                 note: mapping.note ? (rowObj[mapping.note] || '') : ''

@@ -33,7 +33,7 @@ const monthlyReportPageStyle = `
       max-width: 277mm !important;
       height: 400mm !important;
       max-height: 400mm !important;
-      padding: 15mm 10mm !important;
+      padding: 8mm !important;
       box-sizing: border-box !important;
     }
   }
@@ -49,7 +49,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
   const [previewScale, setPreviewScale] = useState(0.5);
   const [isGenerating, setIsGenerating] = useState(false);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
-  const [filterActiveOnly, setFilterActiveOnly] = useState(false); // [NEW] 입출고 있는 항목만 필터
+  const [filterActiveOnly, setFilterActiveOnly] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [labels, setLabels] = useState<Record<string, string>>({});
 
@@ -111,28 +111,40 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
 
     const calculated = items.map(item => {
       const itemTrans = transactions.filter(t => t.itemId === item.id);
+      const carryOvers = itemTrans
+        .filter(t => t.reason === '재고이월')
+        .sort((a, b) => b.date.localeCompare(a.date));
+      const stockMovements = itemTrans.filter(t => t.reason !== '재고이월');
 
-      // Transactions strictly within the selected month
-      const monthTrans = itemTrans.filter(t => t.date >= startDate && t.date < nextMonthStr);
+      // Carry-over rows establish opening stock; they are not monthly receipts.
+      const monthTrans = stockMovements.filter(t => t.date >= startDate && t.date < nextMonthStr);
       const totalIn = roundToOneDecimal(monthTrans.filter(t => t.type === 'IN').reduce((sum, t) => sum + t.quantity, 0));
       const totalOut = roundToOneDecimal(monthTrans.filter(t => t.type === 'OUT').reduce((sum, t) => sum + t.quantity, 0));
 
-      // Back-calculate End Stock from Current Stock
-      // End Stock (of selected month) = Current Stock - (Transactions after selected month)
-      // Reverse Logic: 
-      // If a transaction happened later (Future IN), we subtract it to go back in time.
-      // If a transaction happened later (Future OUT), we add it back.
-      const futureTrans = itemTrans.filter(t => t.date >= nextMonthStr);
-      let endStock = roundToOneDecimal(item.currentStock, 0);
+      const netMovement = (movements: typeof stockMovements) =>
+        movements.reduce((sum, t) => sum + (t.type === 'IN' ? t.quantity : -t.quantity), 0);
+      const carryAtOrBeforeMonth = carryOvers.find(t => t.date <= startDate);
+      const carryAfterMonth = [...carryOvers]
+        .reverse()
+        .find(t => t.date >= nextMonthStr);
 
-      futureTrans.forEach(t => {
-        if (t.type === 'IN') endStock -= t.quantity;
-        else endStock += t.quantity;
-      });
-      endStock = roundToOneDecimal(endStock, 0);
-
-      // Start Stock = End Stock - Total In + Total Out
-      const startStock = roundToOneDecimal(endStock - totalIn + totalOut, 0);
+      let startStock: number;
+      if (carryAtOrBeforeMonth) {
+        const movementsSinceCarry = stockMovements.filter(
+          t => t.date >= carryAtOrBeforeMonth.date && t.date < startDate
+        );
+        startStock = carryAtOrBeforeMonth.quantity + netMovement(movementsSinceCarry);
+      } else if (carryAfterMonth) {
+        const movementsBeforeCarry = stockMovements.filter(
+          t => t.date >= startDate && t.date < carryAfterMonth.date
+        );
+        startStock = carryAfterMonth.quantity - netMovement(movementsBeforeCarry);
+      } else {
+        const movementsAfterMonthStart = stockMovements.filter(t => t.date >= startDate);
+        startStock = item.currentStock - netMovement(movementsAfterMonthStart);
+      }
+      startStock = roundToOneDecimal(startStock, 0);
+      const endStock = roundToOneDecimal(startStock + totalIn - totalOut, 0);
 
       return {
         ...item,
@@ -227,21 +239,21 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
 
   // Explicit Styles
   const commonCellStyle: React.CSSProperties = {
-    padding: '1px 3px',
-    height: '18px',
+    padding: '2px 4px',
+    height: '33px',
     verticalAlign: 'middle',
     borderRight: '1px solid #f1f5f9',
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    fontSize: '11px',
+    fontSize: '14px',
     fontFamily: "'Noto Sans KR', sans-serif"
   };
 
   const headerCellStyle: React.CSSProperties = {
     ...commonCellStyle,
-    height: '32px', // Explicit header height
+    height: '40px',
     backgroundColor: '#f1f5f9', // slate-100
     borderRight: '1px solid #cbd5e1', // slate-300 for clearer grid
     borderTop: '2px solid #1e293b', // slate-800 (Title Line: 2px)
@@ -280,7 +292,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
         </div>
         <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
 
-        {/* [NEW] 입출고 항목만 필터 체크박스 */}
+        {/* Filter out items without transactions in the selected month. */}
         <label className="flex items-center gap-1.5 cursor-pointer select-none group">
           <input
             type="checkbox"
@@ -294,7 +306,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
               ? 'text-orange-600 dark:text-orange-400'
               : 'text-slate-600 dark:text-slate-300'
           }`}>
-            입출고 있는 항목만
+            선택 월 입출고 품목만
           </span>
           {filterActiveOnly && (
             <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 px-1.5 py-0.5 rounded-full font-bold">
@@ -344,28 +356,28 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                   pageBreakAfter: 'always',
                   width: '277mm',
                   height: '400mm',
-                  padding: '15mm 10mm',
+                  padding: '8mm',
                   boxSizing: 'border-box'
                 }}
               >
               <div className="flex-1">
                 {/* Header */}
-                <div className="mb-2 border-b-2 border-slate-800 pb-2">
-                  <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">월별 재고 수불 현황</h1>
-                  <div className="flex justify-between items-end mt-4">
+                <div className="mb-1 border-b-2 border-slate-800 pb-1">
+                  <h1 className="text-[26px] font-bold text-center text-slate-900 mb-2">월별 재고 수불 현황</h1>
+                  <div className="flex justify-between items-end mt-2">
                     <div className="text-left">
                       <p className="text-sm font-bold text-slate-700">기관명: KDT</p>
                       <p className="text-sm font-bold text-slate-700">대상기간: {formattedMonth}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] text-slate-500">출력일자: {new Date().toLocaleDateString()}</p>
-                      <p className="text-[10px] text-slate-500">Page {pageIndex + 1} / {pages.length}</p>
+                      <p className="text-[11px] text-slate-500">출력일자: {new Date().toLocaleDateString()}</p>
+                      <p className="text-[11px] text-slate-500">Page {pageIndex + 1} / {pages.length}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Table */}
-                <table className="w-full text-[12px] border-collapse table-fixed">
+                <table className="w-full text-[13px] border-collapse table-fixed">
                   <colgroup>
                     <col style={{ width: '5%' }} />  {/* No */}
                     <col style={{ width: '13%' }} /> {/* Category */}
@@ -378,7 +390,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                     <col style={{ width: '10%' }} />  {/* Location */}
                   </colgroup>
                   <thead>
-                    <tr style={{ height: '32px' }}>
+                    <tr style={{ height: '40px' }}>
                       <th style={headerCellStyle}>No</th>
                       <th style={headerCellStyle}>{getLabel('category', '대분류')}</th>
                       <th style={headerCellStyle}>{getLabel('name', '품목명')}</th>
@@ -394,7 +406,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                     {pageItems.map((item, slotIndex) => {
                       const hasItem = Boolean(item.name);
                       return (
-                        <tr key={`${item.id}-${slotIndex}`} style={{ height: '18px', backgroundColor: '#ffffff' }}>
+                        <tr key={`${item.id}-${slotIndex}`} style={{ height: '33px', backgroundColor: '#ffffff' }}>
                           <td style={cellStyles.no}>{slotIndex + 1}</td>
                           {slotIndex === 0 && (
                             <td rowSpan={SLOTS_PER_CATEGORY} style={{ ...cellStyles.category, verticalAlign: 'middle' }}>
@@ -424,7 +436,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
               </div>
 
               {/* Footer */}
-              <div className="mt-0 pt-2 border-t border-slate-300 text-[9px] text-slate-500 flex justify-between items-center">
+              <div className="mt-0 pt-1 border-t border-slate-300 text-[9px] text-slate-500 flex justify-between items-center">
                 <span>System: KDT Inventory Manager</span>
                 <span className="font-bold">KDT</span>
               </div>

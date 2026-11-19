@@ -1,5 +1,6 @@
 import { InventoryTransaction } from './types';
 
+// Legacy pre-PDF seed retained for reference. Active seeds are in pdfVerifiedSeed.ts.
 // KDT initial verified inbound transactions (33 transactions across ZONE16_Plus and ZONE18)
 // Extracted from _user/KDT-Inventory.xlsx (integer EA basis; ZONE18 M8 flat washer has 2 inbound records totaling 46,100 EA)
 export const INITIAL_TRANSACTIONS: InventoryTransaction[] = [
