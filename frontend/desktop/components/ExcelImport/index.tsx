@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { read, utils } from 'xlsx';
 import { FileSpreadsheet, ArrowRight } from 'lucide-react';
 import { InventoryItem, Category } from '../../types';
@@ -384,11 +384,11 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center text-sm font-medium mr-4">
-                        <span className={`px-2 py-1 rounded ${step === 1 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'text-slate-400 dark:text-slate-600'}`}>1. 업로드</span>
+                        <span className={`px-2 py-1 rounded ${step === 1 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' : 'text-slate-400 dark:text-slate-600'}`}>1. 업로드</span>
                         <ArrowRight size={14} className="mx-1 text-slate-300 dark:text-slate-600" />
-                        <span className={`px-2 py-1 rounded ${step === 2 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'text-slate-400 dark:text-slate-600'}`}>2. 필드연결</span>
+                        <span className={`px-2 py-1 rounded ${step === 2 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' : 'text-slate-400 dark:text-slate-600'}`}>2. 필드연결</span>
                         <ArrowRight size={14} className="mx-1 text-slate-300 dark:text-slate-600" />
-                        <span className={`px-2 py-1 rounded ${step === 3 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'text-slate-400 dark:text-slate-600'}`}>3. 검토/저장</span>
+                        <span className={`px-2 py-1 rounded ${step === 3 ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' : 'text-slate-400 dark:text-slate-600'}`}>3. 검토/저장</span>
                     </div>
                     {step === 1 && <button onClick={onCancel} className="text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">취소</button>}
                 </div>

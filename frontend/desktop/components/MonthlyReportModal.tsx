@@ -14,11 +14,32 @@ interface MonthlyReportModalProps {
   columnWidths?: Record<string, number>; // Make optional to prevent breakage if not passed
 }
 
-// User Requirement: Reduced to 35 items per page for better A4 layout
-const ROWS_PER_PAGE = 33;
+const SLOTS_PER_CATEGORY = 40;
+const monthlyReportPageStyle = `
+  @page monthly-report {
+    size: A3 portrait;
+    margin: 10mm;
+  }
+  @media print {
+    .print-page.monthly-report-print-page {
+      page: monthly-report;
+      width: 277mm !important;
+      max-width: 277mm !important;
+      height: 400mm !important;
+      max-height: 400mm !important;
+      padding: 15mm 10mm !important;
+      box-sizing: border-box !important;
+    }
+  }
+`;
+
+const getCurrentLocalMonth = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
 
 const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transactions, masterData, onClose, columnWidths = {} }) => {
-  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentLocalMonth); // YYYY-MM in local time
   const [isGenerating, setIsGenerating] = useState(false);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
   const [filterActiveOnly, setFilterActiveOnly] = useState(false); // [NEW] 입출고 있는 항목만 필터
@@ -61,7 +82,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
 
     // Calculate next month start date
     const [year, month] = selectedMonth.split('-').map(Number);
-    const nextMonthDate = new Date(year, month, 1);
+    const nextMonthDate = new Date(Date.UTC(year, month, 1));
     const nextMonthStr = nextMonthDate.toISOString().slice(0, 10);
 
     const calculated = items.map(item => {
@@ -96,11 +117,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
         totalOut,
         endStock
       };
-    })
-      // Filter items with no activity/stock relevant to this month
-      .filter(row => row.startStock !== 0 || row.totalIn !== 0 || row.totalOut !== 0 || row.endStock !== 0)
-      // [NEW] Optional: filter to show only items with actual in/out transactions this month
-      .filter(row => filterActiveOnly ? (row.totalIn > 0 || row.totalOut > 0) : true);
+    });
 
     // Sort by Category then Name
     return calculated.sort((a, b) => {
@@ -122,36 +139,79 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
       if (orderNameA === undefined && orderNameB !== undefined) return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [items, transactions, selectedMonth, categoryOrderMap, nameOrderMap, filterActiveOnly]);
+  }, [items, transactions, selectedMonth, categoryOrderMap, nameOrderMap]);
 
-  // --- Pagination ---
+  // Keep one fixed 40-slot page for every configured category.
   const pages = useMemo(() => {
-    const chunks = [];
-    for (let i = 0; i < reportData.length; i += ROWS_PER_PAGE) {
-      chunks.push(reportData.slice(i, i + ROWS_PER_PAGE));
-    }
-    if (chunks.length === 0) return [[]]; // Return at least one empty page
-    return chunks;
-  }, [reportData]);
+    const categories = [...new Set([
+      ...masterData.categories,
+      ...items.map(item => item.category).filter(Boolean)
+    ])].sort((a, b) => {
+      const orderA = categoryOrderMap.get(a);
+      const orderB = categoryOrderMap.get(b);
+      if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
+      if (orderA !== undefined) return -1;
+      if (orderB !== undefined) return 1;
+      return a.localeCompare(b);
+    });
+    const pageCategories = categories.length > 0 ? categories : [''];
+
+    return pageCategories.map(category => {
+      const categoryItems = reportData
+        .filter(item => item.category === category)
+        .filter(item => !filterActiveOnly || item.totalIn > 0 || item.totalOut > 0)
+        .slice(0, SLOTS_PER_CATEGORY);
+      const slots: Array<(typeof reportData)[number] | {
+        id: string;
+        category: string;
+        name: string;
+        unit: string;
+        location: string;
+        startStock: number;
+        totalIn: number;
+        totalOut: number;
+        endStock: number;
+      }> = [...categoryItems];
+
+      while (slots.length < SLOTS_PER_CATEGORY) {
+        const slot = slots.length + 1;
+        slots.push({
+          id: `empty-${category}-${slot}`,
+          category,
+          name: '',
+          unit: '',
+          location: '',
+          startStock: 0,
+          totalIn: 0,
+          totalOut: 0,
+          endStock: 0
+        });
+      }
+      return { category, items: slots };
+    });
+  }, [items, masterData.categories, categoryOrderMap, reportData, filterActiveOnly]);
+
+  const activeItemCount = reportData.filter(item => item.totalIn > 0 || item.totalOut > 0).length;
 
   const handlePrint = useReactToPrint({
     contentRef: contentRef,
     documentTitle: `월별재고수불현황_${selectedMonth}`,
+    pageStyle: monthlyReportPageStyle,
   });
 
   const formattedMonth = `${selectedMonth.split('-')[0]}년 ${selectedMonth.split('-')[1]}월`;
 
   // Explicit Styles
   const commonCellStyle: React.CSSProperties = {
-    padding: '4px 4px',
-    height: '25px',
+    padding: '1px 3px',
+    height: '18px',
     verticalAlign: 'middle',
     borderRight: '1px solid #f1f5f9',
     borderBottom: '1px solid #e2e8f0',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    fontSize: '12px',
+    fontSize: '11px',
     fontFamily: "'Noto Sans KR', sans-serif"
   };
 
@@ -180,20 +240,6 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
     note: { ...commonCellStyle, textAlign: 'center', color: '#64748b', borderRight: 'none' } as React.CSSProperties // slate-500
   };
 
-  // 대분류 rowspan 계산 (미리보기용 병합 셀)
-  const getCategoryRowSpan = (pageItems: any[], currentIndex: number) => {
-    const currentCategory = pageItems[currentIndex].category;
-    if (currentIndex > 0 && pageItems[currentIndex - 1].category === currentCategory) {
-      return 0;
-    }
-    let count = 1;
-    for (let i = currentIndex + 1; i < pageItems.length; i++) {
-      if (pageItems[i].category === currentCategory) count++;
-      else break;
-    }
-    return count;
-  };
-
   return (
     <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-auto p-4 custom-scrollbar print-modal-overlay">
 
@@ -217,18 +263,18 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
             id="filterActiveOnly"
             checked={filterActiveOnly}
             onChange={(e) => setFilterActiveOnly(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 cursor-pointer"
+            className="w-4 h-4 accent-orange-600 cursor-pointer"
           />
           <span className={`text-sm font-medium transition-colors ${
             filterActiveOnly
-              ? 'text-blue-600 dark:text-blue-400'
+              ? 'text-orange-600 dark:text-orange-400'
               : 'text-slate-600 dark:text-slate-300'
           }`}>
             입출고 있는 항목만
           </span>
           {filterActiveOnly && (
-            <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-bold">
-              {reportData.length}건
+            <span className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 px-1.5 py-0.5 rounded-full font-bold">
+            {activeItemCount}건
             </span>
           )}
         </label>
@@ -236,7 +282,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
         <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
         <button
           onClick={handlePrint}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition-colors"
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-1.5 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition-colors"
         >
           <Printer size={16} />
           수불부 인쇄
@@ -251,13 +297,11 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
 
       {/* Pages Container */}
       <div ref={contentRef} className="flex flex-col gap-8 my-12 items-center print:block print:w-full print:m-0 print:p-0">
-        {pages.map((pageItems, pageIndex) => {
-          const startIndex = pageIndex * ROWS_PER_PAGE;
-
+        {pages.map(({ category, items: pageItems }, pageIndex) => {
           return (
             <div
               key={pageIndex}
-              className="print-page bg-white text-slate-900 w-full shadow-2xl relative flex flex-col justify-between mx-auto mb-8 print:mb-0 print:shadow-none"
+              className="print-page monthly-report-print-page bg-white text-slate-900 w-full shadow-2xl relative flex flex-col justify-between mx-auto mb-8 print:mb-0 print:shadow-none"
               style={{ pageBreakAfter: 'always', padding: '15mm 10mm' }}
             >
               <div className="flex-1">
@@ -303,44 +347,34 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                     </tr>
                   </thead>
                   <tbody>
-                    {pageItems.length === 0 ? (
-                      <tr><td colSpan={9} className="text-center py-20 text-slate-400 text-base border border-slate-300">해당 월에 데이터가 없습니다.</td></tr>
-                    ) : (
-                      pageItems.map((item, i) => {
-                        const rowSpan = getCategoryRowSpan(pageItems, i);
-                        const rowStyle: React.CSSProperties = {
-                          borderBottom: '1px solid #e2e8f0'
-                        };
-
-                        return (
-                          <tr key={`${item.id}-${i}`} style={{ ...rowStyle, height: '25px', backgroundColor: '#ffffff' }}>
-                            <td style={cellStyles.no}>{startIndex + i + 1}</td>
-
-                            {/* Native Printing handles rowspan correctly */}
-                            {rowSpan > 0 && (
-                              <td rowSpan={rowSpan} style={{ ...cellStyles.category, verticalAlign: 'middle' }}>
-                                {item.category}
-                              </td>
-                            )}
-                            <td style={cellStyles.name}>{item.name}</td>
-                            <td style={cellStyles.unit}>{item.unit}</td>
-
-                            <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>{Number(item.startStock).toFixed(1)}</td>
-
-                            {/* Removed Background Color for IN/OUT, Kept text color for legibility */}
-                            <td style={{ ...cellStyles.stock, color: '#2563eb' }}>
-                              {item.totalIn > 0 ? Number(item.totalIn).toFixed(1) : '-'}
+                    {pageItems.map((item, slotIndex) => {
+                      const hasItem = Boolean(item.name);
+                      return (
+                        <tr key={`${item.id}-${slotIndex}`} style={{ height: '18px', backgroundColor: '#ffffff' }}>
+                          <td style={cellStyles.no}>{slotIndex + 1}</td>
+                          {slotIndex === 0 && (
+                            <td rowSpan={SLOTS_PER_CATEGORY} style={{ ...cellStyles.category, verticalAlign: 'middle' }}>
+                              {category}
                             </td>
-                            <td style={{ ...cellStyles.stock, color: '#dc2626' }}>
-                              {item.totalOut > 0 ? Number(item.totalOut).toFixed(1) : '-'}
-                            </td>
-
-                            <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>{Number(item.endStock).toFixed(1)}</td>
-                            <td style={cellStyles.location}>{item.location}</td>
-                          </tr>
-                        );
-                      })
-                    )}
+                          )}
+                          <td style={cellStyles.name}>{item.name}</td>
+                          <td style={cellStyles.unit}>{item.unit}</td>
+                          <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>
+                            {hasItem ? Number(item.startStock).toFixed(1) : ''}
+                          </td>
+                          <td style={{ ...cellStyles.stock, color: '#2563eb' }}>
+                            {hasItem && item.totalIn > 0 ? Number(item.totalIn).toFixed(1) : ''}
+                          </td>
+                          <td style={{ ...cellStyles.stock, color: '#dc2626' }}>
+                            {hasItem && item.totalOut > 0 ? Number(item.totalOut).toFixed(1) : ''}
+                          </td>
+                          <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>
+                            {hasItem ? Number(item.endStock).toFixed(1) : ''}
+                          </td>
+                          <td style={cellStyles.location}>{item.location}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

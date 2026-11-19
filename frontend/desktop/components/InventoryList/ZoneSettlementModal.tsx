@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { X, ArrowRightLeft, RotateCcw, CheckSquare, Square, Loader2, AlertCircle } from 'lucide-react';
 import { InventoryItem, InventoryTransaction, User } from '../../types';
 import { formatInteger, roundToInt } from '../../utils/formatters';
@@ -186,7 +186,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
           <div>
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <ArrowRightLeft size={20} className="text-indigo-600 dark:text-indigo-400" />
+              <ArrowRightLeft size={20} className="text-orange-600 dark:text-orange-400" />
               ZONE 작업완료 잔여재고 반납 · 이관 정산
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -235,7 +235,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
                   onClick={() => setMode('TRANSFER')}
                   className={`py-1.5 text-xs font-bold rounded-md flex items-center justify-center gap-1 transition-all ${
                     mode === 'TRANSFER'
-                      ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm'
                       : 'text-slate-600 dark:text-slate-400'
                   }`}
                 >
@@ -257,11 +257,11 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
 
           {mode === 'TRANSFER' && (
             <div className="flex flex-wrap items-center gap-3 pt-1">
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">이관 받을 대상 ZONE:</span>
+              <span className="text-xs font-bold text-orange-600 dark:text-orange-400">이관 받을 대상 ZONE:</span>
               <select
                 value={targetZone}
                 onChange={(e) => setTargetZone(e.target.value)}
-                className="px-3 py-1.5 text-sm font-bold border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                className="px-3 py-1.5 text-sm font-bold border border-orange-300 dark:border-orange-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               >
                 <option value="">-- 대상 ZONE 선택 --</option>
                 {categories
@@ -279,7 +279,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
                   value={customTargetZone}
                   onChange={(e) => setCustomTargetZone(e.target.value)}
                   placeholder="신규 ZONE명 (예: ZONE19)"
-                  className="px-3 py-1.5 text-sm border border-indigo-300 dark:border-indigo-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                  className="px-3 py-1.5 text-sm border border-orange-300 dark:border-orange-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                 />
               )}
             </div>
@@ -291,7 +291,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-500">
             <button onClick={toggleAll} className="flex items-center gap-2 hover:text-slate-800 dark:hover:text-slate-200">
               {selectedIds.size === zoneItemsWithStock.length && zoneItemsWithStock.length > 0 ? (
-                <CheckSquare size={16} className="text-indigo-600" />
+                <CheckSquare size={16} className="text-orange-600" />
               ) : (
                 <Square size={16} className="text-slate-400" />
               )}
@@ -315,13 +315,13 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
                     onClick={() => toggleItem(item.id)}
                     className={`flex items-center justify-between px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
                       checked
-                        ? 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-800'
+                        ? 'bg-orange-50/60 dark:bg-orange-950/30 border-orange-300 dark:border-orange-800'
                         : 'bg-white dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 opacity-60'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {checked ? (
-                        <CheckSquare size={16} className="text-indigo-600 shrink-0" />
+                        <CheckSquare size={16} className="text-orange-600 shrink-0" />
                       ) : (
                         <Square size={16} className="text-slate-400 shrink-0" />
                       )}
@@ -332,7 +332,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="font-mono font-black text-sm text-blue-600 dark:text-blue-400">
+                    <div className="font-mono font-black text-sm text-orange-600 dark:text-orange-400">
                       {formatInteger(item.currentStock)} EA
                     </div>
                   </div>
@@ -367,7 +367,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
               onClick={handleExecute}
               disabled={isProcessing || selectedIds.size === 0}
               className={`px-5 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow disabled:opacity-50 ${
-                mode === 'RETURN' ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+                mode === 'RETURN' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'
               }`}
             >
               {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}

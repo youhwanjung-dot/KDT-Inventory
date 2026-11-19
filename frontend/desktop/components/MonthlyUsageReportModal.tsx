@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+﻿import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { X, Printer, Search } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, InventoryTransaction, MasterData } from '../types';
@@ -260,7 +260,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
       ...commonCellStyle,
       textAlign: 'right',
       fontWeight: 'bold',
-      color: '#2563eb', // highlight non-zero values in blue
+      color: '#ea580c', // highlight non-zero values in orange
     } as React.CSSProperties,
   };
 
@@ -283,7 +283,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500"
+            className="border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-orange-500"
           >
             {yearsOptions.map((y) => (
               <option key={y} value={y}>
@@ -302,7 +302,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
             placeholder="품목명 검색..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8 pr-3 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm w-40 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="pl-8 pr-3 py-1 border border-slate-300 dark:border-slate-600 rounded text-sm w-40 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
           />
         </div>
         <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
@@ -313,11 +313,11 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
             type="checkbox"
             checked={showZeroUsage}
             onChange={(e) => setShowZeroUsage(e.target.checked)}
-            className="w-4 h-4 accent-blue-600 cursor-pointer"
+            className="w-4 h-4 accent-orange-600 cursor-pointer"
           />
           <span
             className={`text-sm font-medium transition-colors ${
-              showZeroUsage ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300'
+              showZeroUsage ? 'text-orange-600 dark:text-orange-400' : 'text-slate-600 dark:text-slate-300'
             }`}
           >
             사용량 없는 품목 포함
@@ -331,7 +331,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
 
         <button
           onClick={handlePrint}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 text-sm font-bold transition-colors"
+          className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 text-sm font-bold transition-colors"
         >
           <Printer size={15} />
           인쇄

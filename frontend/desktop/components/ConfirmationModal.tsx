@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangle, X, Check } from 'lucide-react';
 
 interface ConfirmationModalProps {
@@ -26,7 +26,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700 overflow-hidden scale-100 transition-transform">
         <div className={`p-4 flex items-center gap-3 border-b ${isDangerous ? 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-900/50' : 'bg-slate-50 border-slate-100 dark:bg-slate-700/50 dark:border-slate-700'}`}>
-          <div className={`p-2 rounded-full ${isDangerous ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400'}`}>
+          <div className={`p-2 rounded-full ${isDangerous ? 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400' : 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400'}`}>
             <AlertTriangle size={24} />
           </div>
           <h3 className={`text-lg font-bold ${isDangerous ? 'text-red-700 dark:text-red-400' : 'text-slate-800 dark:text-slate-100'}`}>
@@ -46,7 +46,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               onClick={onConfirm}
               className={`px-4 py-2 rounded-lg text-white text-sm font-bold shadow-md flex items-center gap-2 transition-colors ${isDangerous
                   ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-orange-600 hover:bg-orange-700'
                 }`}
             >
               <Check size={16} />

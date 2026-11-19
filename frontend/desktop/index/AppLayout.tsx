@@ -76,6 +76,7 @@ const getPermissionLabel = (role: string, txPermission?: string): string => {
 const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
   const {
     user,
+    setUser,
     isDarkMode, setIsDarkMode,
     inventory, setInventory,
     transactions,
@@ -152,8 +153,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
       >
         <div className="p-4 h-16 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 shrink-0">
           {isSidebarOpen && (
-            <span className="font-bold text-xl text-blue-600 dark:text-blue-400 tracking-tight whitespace-nowrap">
-              KDT <span className="text-slate-400 font-normal">자재재고</span>
+            <span className="font-bold text-xl text-orange-600 dark:text-orange-400 tracking-tight whitespace-nowrap">
+              KDT <span className="text-slate-400 font-normal">Inventory</span>
             </span>
           )}
           <button
@@ -170,11 +171,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               key={item.id}
               onClick={() => setCurrentView(item.id as ViewState)}
               className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${currentView === item.id
-                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
             >
-              <item.icon size={22} className={currentView === item.id ? 'text-white' : 'text-slate-400 group-hover:text-blue-500 transition-colors'} />
+              <item.icon size={22} className={currentView === item.id ? 'text-white' : 'text-slate-400 group-hover:text-orange-500 transition-colors'} />
               {isSidebarOpen && <span className="font-medium text-sm">{item.label}</span>}
             </button>
           ))}
@@ -188,7 +189,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 title="ZONE(대분류) 및 품목 기준 정보 관리"
               >
-                <Box size={20} className="text-indigo-500" />
+                <Box size={20} className="text-orange-500" />
                 {isSidebarOpen && <span className="text-sm">ZONE·기준정보 관리</span>}
               </button>
               <button
@@ -346,7 +347,15 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
       {showUserManager && (
         <UserManagerModal
           users={users}
-          onUpdateUsers={setUsers}
+          onUpdateUsers={(updatedUsers) => {
+            setUsers(updatedUsers);
+            if (user) {
+              const refreshedUser = updatedUsers.find((candidate) => candidate.id === user.id);
+              if (refreshedUser) {
+                setUser({ ...user, ...refreshedUser });
+              }
+            }
+          }}
           onClose={() => setShowUserManager(false)}
         />
       )}
@@ -469,7 +478,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
           message={
             <div>
               <p>현재 세션을 종료하고 로그인 화면으로 돌아가시겠습니까?</p>
-              <p className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-medium">
+              <p className="mt-2 text-sm text-orange-600 dark:text-orange-400 font-medium">
                 변경된 모든 데이터는 시스템(DB)에 안전하게 저장됩니다.
               </p>
             </div>

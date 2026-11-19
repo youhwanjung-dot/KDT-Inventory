@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+﻿import React, { useRef } from 'react';
 import { X, Printer, BookOpen } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import UserManual from './UserManual';
@@ -48,7 +48,7 @@ const ManualModal: React.FC<ManualModalProps> = ({ user, onClose }) => {
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => handlePrint()}
-                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors cursor-pointer"
+                        className="px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 rounded-lg flex items-center gap-2 text-sm font-bold shadow-sm transition-colors cursor-pointer"
                     >
                         <Printer size={16} /> 매뉴얼 인쇄 (PDF 저장)
                     </button>

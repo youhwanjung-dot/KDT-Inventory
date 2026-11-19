@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+﻿import React, { useRef, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -118,7 +118,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
             onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
             className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm transition-colors shadow-sm ${
               selectedCategories.length > 0
-                ? 'bg-white border-blue-500 text-blue-700 dark:bg-slate-800 dark:border-blue-500 dark:text-blue-400 ring-1 ring-blue-500'
+                ? 'bg-white border-orange-500 text-orange-700 dark:bg-slate-800 dark:border-orange-500 dark:text-orange-400 ring-1 ring-orange-500'
                 : 'bg-white border-slate-300 text-slate-600 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50'
             }`}
           >
@@ -142,7 +142,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
                 className="flex items-center gap-2 w-full px-2 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-sm font-bold text-slate-800 dark:text-slate-200"
               >
                 {selectedCategories.length === uniqueCategories.length ? (
-                  <CheckSquare size={16} className="text-blue-600" />
+                  <CheckSquare size={16} className="text-orange-600" />
                 ) : (
                   <Square size={16} className="text-slate-400" />
                 )}
@@ -156,7 +156,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
                   className="flex items-center gap-2 w-full px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-sm text-left text-slate-700 dark:text-slate-300"
                 >
                   {selectedCategories.includes(cat) ? (
-                    <CheckSquare size={16} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                    <CheckSquare size={16} className="text-orange-600 dark:text-orange-400 shrink-0" />
                   ) : (
                     <Square size={16} className="text-slate-300 dark:text-slate-600 shrink-0" />
                   )}
@@ -212,7 +212,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
           <input
             type="text"
             placeholder="품명, 도금, 규격, 위치, 비고..."
-            className="w-full pl-9 pr-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-colors shadow-sm"
+            className="w-full pl-9 pr-4 py-2 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-colors shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -223,7 +223,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
         <button
           onClick={onOpenSettlement}
           title="ZONE 작업 완료 후 잔여 재고를 반납 정산(0 마감)하거나 다른 ZONE으로 이관합니다."
-          className="px-3 py-2 text-indigo-600 border border-indigo-200 hover:bg-indigo-50 dark:text-indigo-400 dark:border-indigo-800 dark:hover:bg-indigo-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
+          className="px-3 py-2 text-orange-600 border border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
         >
           <ArrowRightLeft size={15} /> ZONE 반납·정산
         </button>
@@ -256,7 +256,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
             title="선택한 연도의 1년치 캘린더와 전년도 이월재고를 자동 생성합니다."
             value={exportYear}
             onChange={(e) => setExportYear(Number(e.target.value))}
-            className="px-2.5 py-2 text-xs font-extrabold text-blue-600 dark:text-blue-400 bg-slate-50 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
+            className="px-2.5 py-2 text-xs font-extrabold text-orange-600 dark:text-orange-400 bg-slate-50 dark:bg-slate-800/80 border-r border-slate-200 dark:border-slate-700 focus:outline-none cursor-pointer"
           >
             {YEAR_OPTIONS.map((y) => (
               <option key={y} value={y}>
@@ -305,7 +305,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
 
         <button
           onClick={onAdd}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-black shadow-md transition-colors whitespace-nowrap"
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-black shadow-md transition-colors whitespace-nowrap"
         >
           <Plus size={16} /> 신규 등록
         </button>

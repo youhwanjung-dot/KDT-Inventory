@@ -19,8 +19,9 @@ export interface ExportExcelResult {
   targetYear: number;
 }
 
-// KDT expanded to 50 slots per ZONE sheet (cols: 2, 6, 10 ... 198 -> total 200 slot cols)
-const MAX_SLOTS = 50;
+// KDT: 40 slots per ZONE sheet (cols: 2, 6, 10 ... 158 -> total 160 slot cols)
+// Matches the fixed 40-row Main sheet block, including empty slots
+const MAX_SLOTS = 40;
 const SLOT1_START_COL = 2;
 const SLOT_WIDTH = 4;
 const MAX_ROW = 390;
@@ -74,7 +75,7 @@ const isValidCalendarDate = (year: number, month: number, day: number): boolean 
 
 /**
  * Exports KDT inventory and daily transactions into the bidirectional Excel workbook:
- * - "현 재고" summary sheet + per-ZONE 50-slot daily ledger sheets
+ * - "Main" summary sheet + per-ZONE 40-slot daily ledger sheets
  * - Automatically regenerates the 1-year daily calendar in Column A for `targetYear` (e.g. 2026 -> 2027)
  * - Automatically rolls over prior-year net balance into Row 4 (기초 이월재고) when exporting a new year
  */
@@ -160,7 +161,7 @@ export async function exportInventoryToExcel({
 
   const refStyles: Record<number, Partial<ExcelJS.Style>> = {};
   for (let c = 1; c <= 12; c++) {
-    const cell = mainSheet.getCell(5, c);
+    const cell = mainSheet.getCell(2, c);
     refStyles[c] = {};
     if (cell.font) refStyles[c].font = { ...cell.font };
     if (cell.border) refStyles[c].border = JSON.parse(JSON.stringify(cell.border));
@@ -178,15 +179,26 @@ export async function exportInventoryToExcel({
   });
 
   const orderedCategories: string[] = [];
+  const isCategorySelected = (cat: string) =>
+    selectedCategories.length === 0 || selectedCategories.includes(cat);
   masterData.categories.forEach((cat) => {
-    if (itemsByCategory.has(cat) && !orderedCategories.includes(cat)) orderedCategories.push(cat);
+    if (isCategorySelected(cat) && !orderedCategories.includes(cat)) orderedCategories.push(cat);
   });
   itemsByCategory.forEach((_, cat) => {
-    if (!orderedCategories.includes(cat)) orderedCategories.push(cat);
+    if (isCategorySelected(cat) && !orderedCategories.includes(cat)) orderedCategories.push(cat);
   });
 
+  // Keep the summary sheet distinct from every exported ZONE name.
+  const exportedSheetNames = new Set(orderedCategories.map((cat) => cat.toLocaleLowerCase()));
+  let summarySheetName = '현 재고';
+  let summarySuffix = 1;
+  while (exportedSheetNames.has(summarySheetName.toLocaleLowerCase())) {
+    summarySheetName = `현 재고 (${summarySuffix++})`;
+  }
+  mainSheet.name = summarySheetName;
+
   // 4. Extract Column A (date column) + Slot 1 (cols 2..5) pattern from blueprint sheet
-  //    so we can dynamically generate up to 50 slots per ZONE sheet!
+  //    so we can dynamically generate up to MAX_SLOTS (40) slots per ZONE sheet!
   const blueprintSheet = workbook.worksheets[1];
   if (!blueprintSheet) throw new Error('템플릿에 ZONE 수불부 시트가 없습니다.');
 
@@ -233,7 +245,9 @@ export async function exportInventoryToExcel({
       const c = SLOT1_START_COL + rel;
       const cell = blueprintSheet.getCell(r, c);
       const hasFormula = !!cell.formula;
-      const hasValue = cell.value !== null && cell.value !== undefined && !hasFormula;
+      // The template's first slot can contain sample transactions; copy only its
+      // static header values, never dated IN/OUT quantities into every new slot.
+      const hasValue = r <= 5 && cell.value !== null && cell.value !== undefined && !hasFormula;
       const hasStyle = cell.style && Object.keys(cell.style).length > 0;
       if (hasFormula || hasValue || hasStyle) {
         rowSlotCells.push({
@@ -260,10 +274,16 @@ export async function exportInventoryToExcel({
     .map((s) => s.id)
     .forEach((id) => workbook.removeWorksheet(id));
 
-  // 5. Build ZONE sheets with 50 slots and dynamic `targetYear` 1-year calendar
+  // 5. Build ZONE sheets with 40 slots and dynamic `targetYear` 1-year calendar
   const categorySheetMap = new Map<string, ExcelJS.Worksheet>();
   orderedCategories.forEach((cat) => {
     const sheet = workbook.addWorksheet(cat);
+    sheet.pageSetup = {
+      ...blueprintSheet.pageSetup,
+      fitToPage: false,
+      scale: 40,
+      printArea: `A1:${colToLetter(SLOT_COLS[MAX_SLOTS - 1] + SLOT_WIDTH - 1)}${MAX_ROW}`,
+    };
     sheet.getColumn(1).width = Math.max(colAWidth, 13);
 
     // Populate Column A + Row heights
@@ -300,7 +320,7 @@ export async function exportInventoryToExcel({
     }
     sheet.getCell(390, 1).value = '연 계';
 
-    // Replicate 50 slots across columns 2..201
+    // Replicate MAX_SLOTS (40) slots across columns
     for (let slotIdx = 0; slotIdx < MAX_SLOTS; slotIdx++) {
       const targetStartCol = SLOT_COLS[slotIdx];
       const colOffset = targetStartCol - SLOT1_START_COL;
@@ -350,7 +370,7 @@ export async function exportInventoryToExcel({
     categorySheetMap.set(cat, sheet);
   });
 
-  // 6. Assign items into 50 slots per ZONE sheet
+  // 6. Assign items into MAX_SLOTS (40) slots per ZONE sheet
   const filledSlots = new Map<string, { col: number; item: InventoryItem; displayKey: string }[]>();
   const unassignedItems: InventoryItem[] = [];
 
@@ -397,24 +417,35 @@ export async function exportInventoryToExcel({
     });
 
   // 8. Rebuild main summary sheet ("현 재고")
+  //    - Header at Row 1, data from Row 2
+  //    - FIXED 40 rows per category (대분류) including empty slots (KDT spec, not dynamic like Asan)
+  //    - Serial number (연번) 1~40 per category
+  //    - Linked to ZONE calendar sheets via formulas (품명: row3, 현재고: row390 재고 col)
+  //    - Preserve template pageSetup (A4 portrait, fixed 40% scale, printTitlesRow 1:1, margins 0.39)
+
   [...(mainSheet.model.merges || [])].forEach((mergeRange) => {
     try {
       const match = mergeRange.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/);
-      if (match && Number(match[2]) >= 5) {
+      if (match && Number(match[2]) >= 2) {
         mainSheet.unMergeCells(mergeRange);
       }
     } catch {}
   });
 
-  for (let r = 5; r <= mainSheet.rowCount; r++) {
+  for (let r = 2; r <= mainSheet.rowCount; r++) {
     for (let c = 1; c <= 12; c++) {
       mainSheet.getCell(r, c).value = null;
     }
   }
 
-  mainSheet.getCell(1, 2).value = `${targetYear}년 KDT 자재 재고현황`;
+  // Preserve template paper, margins, and repeated heading rows; use a fixed print scale.
+  if (mainSheet.pageSetup) {
+    mainSheet.pageSetup.fitToPage = false;
+    mainSheet.pageSetup.scale = 40;
+    mainSheet.pageSetup.horizontalCentered = true;
+  }
 
-  const EXPORT_HEADER_ROW = 4;
+  const EXPORT_HEADER_ROW = 1;
   const exportHeaders: { col: number; value: string; width: number }[] = [
     { col: 2, value: '연번', width: 7 },
     { col: 3, value: 'ZONE(대분류)', width: 16 },
@@ -436,67 +467,89 @@ export async function exportInventoryToExcel({
     if (headerBorder) cell.border = headerBorder as Partial<ExcelJS.Borders>;
     mainSheet.getColumn(col).width = width;
   });
+  mainSheet.getRow(EXPORT_HEADER_ROW).height = 35.1;
 
-  let currentRow = 5;
-  let globalNum = 1;
+  const ROW_HEIGHT = 35.1;
+  let currentRow = 2;
 
   orderedCategories.forEach((cat) => {
     const slots = (filledSlots.get(cat) || []).filter((s) => s.item.name?.trim());
-    if (slots.length === 0) return;
 
     const startRow = currentRow;
+    const endRow = startRow + MAX_SLOTS - 1;
 
-    slots.forEach((slot) => {
-      const { item, displayKey } = slot;
-      const refColStr = colToLetter(slot.col);
-      const refColBalanceStr = colToLetter(slot.col + 2);
+    // Always generate exactly MAX_SLOTS (40) rows per category — including empty slots.
+    for (let i = 0; i < MAX_SLOTS; i++) {
+      const rowIdx = startRow + i;
+      const slot = slots[i];
 
-      mainSheet.getCell(currentRow, 2).value = globalNum;
-      mainSheet.getCell(currentRow, 4).value = { formula: `'${cat}'!${refColStr}3`, result: displayKey };
-      mainSheet.getCell(currentRow, 5).value = item.plating || '';
-      mainSheet.getCell(currentRow, 6).value = item.spec || '';
-      const unitInfo =
-        (item.eaPerUnit ?? 1) > 1 && item.unit !== 'EA'
-          ? `${item.unit}(×${item.eaPerUnit})`
-          : item.unit || 'EA';
-      mainSheet.getCell(currentRow, 7).value = unitInfo;
-      mainSheet.getCell(currentRow, 8).value = {
-        formula: `'${cat}'!${refColBalanceStr}390`,
-        result: roundToInt(item.currentStock, 0),
-      };
-      mainSheet.getCell(currentRow, 8).numFmt = '#,##0';
-      mainSheet.getCell(currentRow, 9).value = item.location || '';
-      mainSheet.getCell(currentRow, 10).value = item.qtyPerProduct || '';
-      mainSheet.getCell(currentRow, 11).value = item.note || '';
+      mainSheet.getCell(rowIdx, 2).value = i + 1;
 
+      if (slot) {
+        const { item, displayKey } = slot;
+        const refColStr = colToLetter(slot.col);
+        const refColBalanceStr = colToLetter(slot.col + 2);
+
+        mainSheet.getCell(rowIdx, 4).value = { formula: `'${cat}'!${refColStr}3`, result: displayKey };
+        mainSheet.getCell(rowIdx, 5).value = item.plating || '';
+        mainSheet.getCell(rowIdx, 6).value = item.spec || '';
+        const unitInfo =
+          (item.eaPerUnit ?? 1) > 1 && item.unit !== 'EA'
+            ? `${item.unit}(×${item.eaPerUnit})`
+            : item.unit || 'EA';
+        mainSheet.getCell(rowIdx, 7).value = unitInfo;
+        mainSheet.getCell(rowIdx, 8).value = {
+          formula: `'${cat}'!${refColBalanceStr}390`,
+          result: roundToInt(item.currentStock, 0),
+        };
+        mainSheet.getCell(rowIdx, 8).numFmt = '#,##0';
+        mainSheet.getCell(rowIdx, 9).value = item.location || '';
+        mainSheet.getCell(rowIdx, 10).value = item.qtyPerProduct || '';
+        mainSheet.getCell(rowIdx, 11).value = item.note || '';
+      }
+
+      // Apply style (border + font + alignment) to ALL 40 rows (including empty slots)
       for (let c = 2; c <= 11; c++) {
-        const cell = mainSheet.getCell(currentRow, c);
+        const cell = mainSheet.getCell(rowIdx, c);
         const style = refStyles[Math.min(c, 9)];
         if (style?.font) cell.font = style.font;
         if (style?.border) cell.border = style.border;
-        if (c === 8) {
-          cell.alignment = { horizontal: 'right', vertical: 'middle' };
-        } else if (c === 4 || c === 11) {
-          cell.alignment = { horizontal: 'left', vertical: 'middle' };
-        } else if (c !== 3) {
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        if (slot) {
+          if (c === 8) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else if (c === 4 || c === 11) {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          } else if (c !== 3) {
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          }
         }
       }
+      mainSheet.getRow(rowIdx).height = ROW_HEIGHT;
+    }
 
-      currentRow++;
-      globalNum++;
-    });
-
-    const endRow = startRow + slots.length - 1;
-    if (slots.length > 1) {
+    // Store the exact data-sheet name as plain text for reliable ZONE matching.
+    if (MAX_SLOTS > 1) {
       mainSheet.mergeCells(`C${startRow}:C${endRow}`);
     }
     const catCell = mainSheet.getCell(startRow, 3);
-    catCell.value = { formula: `'${cat}'!A2`, result: cat };
+    catCell.value = cat;
     catCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     if (refStyles[3]?.font) catCell.font = refStyles[3].font;
     if (refStyles[3]?.border) catCell.border = refStyles[3].border as Partial<ExcelJS.Borders>;
+
+    // Page break after each 40-row category block
+    try {
+      mainSheet.getRow(endRow).addPageBreak();
+    } catch {}
+
+    currentRow = endRow + 1;
   });
+
+  // Set printArea dynamically to cover all generated rows
+  const lastDataRow = currentRow - 1;
+  if (mainSheet.pageSetup) {
+    mainSheet.pageSetup.printArea = `A1:K${lastDataRow}`;
+  }
 
   const templateEndRow = mainSheet.rowCount || 1;
   for (let r = currentRow; r <= templateEndRow; r++) {

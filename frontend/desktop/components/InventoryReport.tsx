@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+﻿import React, { useMemo, useState, useRef } from 'react';
 import { X, File, AlertTriangle, Package, Clock, Repeat, Wand2, Loader2, HardDrive, FileText } from 'lucide-react';
 import { InventoryItem, InventoryTransaction } from '../types';
 import ReactMarkdown from 'react-markdown';
@@ -118,7 +118,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
         <div className="w-full bg-slate-50 dark:bg-slate-900 flex justify-between items-center p-3 border-b border-slate-200 dark:border-slate-800 no-print sticky top-0 z-10">
             <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2"><Wand2 size={20} className="text-violet-500" /> AI 재고 분석 리포트</h2>
             <div className="flex items-center gap-3">
-                <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center gap-2 text-sm font-bold disabled:opacity-60 shadow-sm">
+                <button onClick={handleDownloadPDF} disabled={isGeneratingPdf} className="px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 rounded-lg flex items-center gap-2 text-sm font-bold disabled:opacity-60 shadow-sm">
                     {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />} PDF 저장
                 </button>
                 <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full"><X size={20} /></button>
@@ -147,7 +147,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
                         <div className="p-4"><SummaryCard icon={HardDrive} title="전체 품목" value={items.length} color="text-slate-500" unit="개" /></div>
                         <div className="p-4"><SummaryCard icon={AlertTriangle} title="긴급 발주" value={shortageData.length} color="text-red-500" unit="건" /></div>
                         <div className="p-4"><SummaryCard icon={Package} title="적정재고 초과" value={overstockData.length} color="text-orange-500" unit="건" /></div>
-                        <div className="p-4"><SummaryCard icon={Clock} title="장기 미사용" value={deadStockData.length} color="text-blue-500" unit="건" /></div>
+                        <div className="p-4"><SummaryCard icon={Clock} title="장기 미사용" value={deadStockData.length} color="text-orange-500" unit="건" /></div>
                     </div>
                 </div>
                 <div className="col-span-8 space-y-8">
@@ -164,7 +164,7 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
                         {overstockData.length === 0 && <tr><td colSpan={6} className="p-4 text-center text-slate-500">데이터 없음</td></tr>}</tbody></table>
                     </ReportSection>
                     <div className="grid grid-cols-1 gap-8">
-                        <ReportSection title={<><span className="text-blue-600">3.</span> 장기 미사용 (Top 5, 90일 이상)</>}>
+                        <ReportSection title={<><span className="text-orange-600">3.</span> 장기 미사용 (Top 5, 90일 이상)</>}>
                             <table className="w-full text-xs text-left"><thead className="bg-slate-100 dark:bg-slate-700 print:bg-gray-100"><tr className="break-inside-avoid"><th className="p-2 font-medium">품목명</th><th className="p-2 font-medium">카테고리</th><th className="p-2 font-medium text-center">현재고</th><th className="p-2 font-medium">최종출고일</th></tr></thead>
                             <tbody>{deadStockData.map(item => (<tr key={item.id} className="border-b dark:border-slate-700 print:border-gray-200 break-inside-avoid"><td className="p-2 font-medium">{item.name}</td><td className="p-2">{item.category}</td><td className="p-2 text-center font-bold">{item.currentStock.toFixed(1)}</td><td className="p-2 text-slate-500 text-xs">{item.lastOutDate}</td></tr>))}
                             {deadStockData.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">데이터 없음</td></tr>}</tbody></table>

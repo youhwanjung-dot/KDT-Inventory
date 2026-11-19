@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import { read, utils } from 'xlsx';
 import { Upload, ArrowRight, CheckCircle, FileText, Check, X, ClipboardList, AlertTriangle, RefreshCw, Calendar, Database, Search, AlertCircle, Loader2, Bug } from 'lucide-react';
 import { InventoryTransaction, InventoryItem } from '../types';
@@ -137,7 +137,7 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
          // --- Loop through sheets one by one ---
          for (let i = 0; i < totalSheets; i++) {
             const sheetName = sheetNames[i];
-            const normalizedSheetName = normalizeStr(sheetName);
+            const normalizedSheetName = normalizeStr(sheetName).toLocaleLowerCase();
 
             // 1. Update Progress UI
             setProgress({ current: i + 1, total: totalSheets, currentSheetName: sheetName });
@@ -207,21 +207,26 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                      const normalizedExcelItemName = normalizeStr(excelName);
                      const dbItems = inventoryMap.get(normalizedExcelItemName);
                      if (!dbItems || dbItems.length === 0) return null;
-                     // Strictly prefer item belonging to the current ZONE sheet first (cross-ZONE duplicate protection)
-                     let matchedItem = dbItems.find(item =>
-                        normalizeStr(item.category) === normalizedSheetName ||
-                        normalizedSheetName.includes(normalizeStr(item.category))
-                     );
-                     if (!matchedItem) matchedItem = dbItems[0];
-                     return matchedItem;
+                     // The ledger tab name is the ZONE key; never fall back to another ZONE's duplicate item.
+                     return dbItems.find(item =>
+                        normalizeStr(item.category).toLocaleLowerCase() === normalizedSheetName
+                     ) || null;
                   };
 
                   const colMap: { [index: number]: { name: string, type: 'IN' | 'OUT' } } = {};
                   let currentItemName = '';
+                  const firstItemColumn = 1;
+                  const itemSlotWidth = 4;
 
                   for (let c = 1; c < typeRow.length; c++) {
                      const rawName = nameRow[c];
-                     if (rawName) currentItemName = String(rawName).trim();
+                     const isItemStart = (c - firstItemColumn) % itemSlotWidth === 0;
+                     if (isItemStart) {
+                        // Empty slots must not inherit the previous item's name.
+                        currentItemName = rawName ? String(rawName).trim() : '';
+                     } else if (rawName) {
+                        currentItemName = String(rawName).trim();
+                     }
 
                      const colType = normalizeStr(typeRow[c]).toLowerCase();
                      if (currentItemName && (colType === '입고' || colType === '출고' || colType === 'in' || colType === 'out')) {
@@ -813,7 +818,7 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                                  <td className="px-3 py-2 text-xs text-slate-500">{row.category}</td>
                                  <td className="px-3 py-2 font-medium">{row.itemName}</td>
                                  <td className="px-3 py-2 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${row.type === 'IN' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${row.type === 'IN' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
                                        {row.type === 'IN' ? '입고' : '출고'}
                                     </span>
                                  </td>
@@ -836,7 +841,7 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                      <button
                         onClick={handleConfirm}
                         disabled={previewData.length === 0}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md flex items-center gap-2 disabled:opacity-50"
+                        className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-md flex items-center gap-2 disabled:opacity-50"
                      >
                         <CheckCircle size={18} />
                         등록 완료 ({previewData.length.toLocaleString()}건)

@@ -62,6 +62,13 @@ export const processKdtInboundSheet = (
         if (headerRowIdx === -1) return { success: false, items: [] };
 
         const header = data[headerRowIdx].map(normalize);
+        const hasDateColumn = header.some((c) =>
+            ['입고일', '일자', 'date'].some((key) => c.includes(normalize(key)))
+        );
+        const hasInboundQuantityColumn = header.some((c) => c.includes('수량'));
+        // The Main inventory summary has 품명/도금/현재고 too, but is not an inbound sheet.
+        if (!hasDateColumn || !hasInboundQuantityColumn) return { success: false, items: [] };
+
         const findCol = (keys: string[], fallback: number) => {
             const idx = header.findIndex(c => keys.some(k => c.includes(k)));
             return idx !== -1 ? idx : fallback;

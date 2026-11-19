@@ -32,7 +32,7 @@ const ResizableTh: React.FC<ResizableThProps> = ({
       {children}
     </div>
     <div
-      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-500/50 active:bg-blue-600 z-10 transition-colors"
+      className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-orange-500/50 active:bg-orange-600 z-10 transition-colors"
       onMouseDown={onResizeStart}
     />
   </th>
@@ -172,7 +172,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono font-black text-base text-blue-600 dark:text-blue-400">
+                  <td className="px-4 py-3 text-right font-mono font-black text-base text-orange-600 dark:text-orange-400">
                     {formatInteger(grp.totalStockEa)} EA
                   </td>
                   <td className="px-4 py-3">
@@ -181,7 +181,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         <button
                           key={entry.id}
                           onClick={() => onTransaction(entry)}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border border-orange-200 dark:border-orange-800 bg-orange-50/70 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/60 transition-colors"
                           title={`${entry.category} 입출고 모달 열기`}
                         >
                           <span>{entry.category}:</span>
@@ -254,7 +254,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
             return (
               <tr
                 key={item.id}
-                className="hover:bg-blue-50 dark:hover:bg-blue-900/10 group cursor-pointer transition-colors"
+                className="hover:bg-orange-50 dark:hover:bg-orange-900/10 group cursor-pointer transition-colors"
                 onClick={() => onTransaction(item)}
               >
                 <td
@@ -263,7 +263,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 >
                   <button
                     onClick={() => onEdit(item.id)}
-                    className="p-1.5 bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-800 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900 transition-colors shadow-sm"
+                    className="p-1.5 bg-white dark:bg-slate-800 border border-orange-200 dark:border-orange-800 rounded-md text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900 transition-colors shadow-sm"
                     title="자재 정보 수정"
                     aria-label="자재 정보 수정"
                   >
@@ -273,7 +273,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-2 py-2.5 text-center text-slate-400 font-mono text-xs font-bold">
                   {index + 1}
                 </td>
-                <td className="px-3 py-2.5 text-indigo-700 dark:text-indigo-400 font-extrabold text-sm truncate" title={item.category}>
+                <td className="px-3 py-2.5 text-orange-700 dark:text-orange-400 font-extrabold text-sm truncate" title={item.category}>
                   {item.category}
                 </td>
                 <td className="px-3 py-2.5 font-black text-slate-900 dark:text-white text-sm truncate" title={item.name}>
@@ -304,11 +304,6 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     <span className="text-base font-mono">{formatInteger(item.currentStock)}</span>
                     {isLowStock && <AlertCircle size={15} className="text-red-500 animate-pulse shrink-0" />}
                   </div>
-                  {showUnitRef && (
-                    <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold font-mono">
-                      ({convertedStr} {item.unit})
-                    </div>
-                  )}
                 </td>
                 <td className="px-2 py-2.5 text-center text-slate-600 dark:text-slate-300 font-bold text-xs">
                   {showUnitRef ? `${item.unit}(×${per})` : item.unit || 'EA'}
@@ -316,7 +311,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <td className="px-2 py-2.5 text-center text-slate-600 dark:text-slate-300 font-semibold text-xs truncate" title={item.location}>
                   {item.location || '-'}
                 </td>
-                <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 text-xs truncate" title={item.note || ''}>
+                <td className="px-3 py-2.5 text-slate-500 dark:text-slate-400 text-xs truncate" title={`${showUnitRef ? `(${convertedStr} ${item.unit}) ` : ''}${item.note || ''}`}>
+                  {showUnitRef && (
+                    <span className="text-orange-600 dark:text-orange-400 font-semibold mr-1">({convertedStr} {item.unit})</span>
+                  )}
                   {item.note || ''}
                 </td>
               </tr>

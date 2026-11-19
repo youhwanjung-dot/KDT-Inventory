@@ -230,8 +230,8 @@ const InventoryList: React.FC<InventoryListProps> = ({
         isError: false,
         message:
           unassignedCount > 0
-            ? `${fileName} (${targetYear}년 캘린더·50슬롯) 생성 완료 (ZONE당 최대 50개 초과분 ${unassignedCount}건 미배치)`
-            : `${fileName} (${targetYear}년 1년치 캘린더 · ZONE당 50슬롯 · 전년 이월재고 자동계산) 파일이 생성되었습니다.`,
+            ? `${fileName} (${targetYear}년 캘린더·40슬롯) 생성 완료 (ZONE당 최대 40개 초과분 ${unassignedCount}건 미배치)`
+            : `${fileName} (${targetYear}년 1년치 캘린더 · ZONE당 40슬롯 · 전년 이월재고 자동계산) 파일이 생성되었습니다.`,
       });
     } catch (error) {
       console.error('Excel export failed:', error);
@@ -354,11 +354,11 @@ const InventoryList: React.FC<InventoryListProps> = ({
       {isExporting && (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center flex-col gap-4 animate-fade-in">
           <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
-            <div className="animate-spin text-blue-600 dark:text-blue-400">
+            <div className="animate-spin text-orange-600 dark:text-orange-400">
               <Loader2 size={48} />
             </div>
             <p className="text-lg font-bold text-slate-800 dark:text-slate-100">
-              {exportYear}년 KDT 수불부 엑셀(50슬롯) 생성 중...
+              {exportYear}년 KDT 수불부 엑셀(40슬롯) 생성 중...
             </p>
             <p className="text-sm text-slate-500 dark:text-slate-400">잠시만 기다려주세요.</p>
           </div>

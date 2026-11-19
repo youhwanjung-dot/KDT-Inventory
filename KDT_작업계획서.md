@@ -1,7 +1,7 @@
 # KDT 자재 재고관리 시스템 구축 작업계획서 (KDT-Inventory)
 
 > 작성: 경훈시스템 부설 자동화 연구소 수석연구원 최박사
-> 최초 작성: 2026-11-19 / 최종 개정: 2026-11-19 (2차 QnA 반영 — 확정안)
+> 최초 작성: 2026-11-19 / 최종 개정: 2026-11-19 (Ver 1.3.8 반영)
 > 기준 프로젝트: `D:\M_PROJECT\Asan-Inventory_3400` (Ver 5.34.0, 읽기 전용 참조)
 > 대상 프로젝트: `D:\M_PROJECT\KDT-Inventory_3500`
 > Firebase Project: `kdt-inventory` (#932423332610) / 리전: `asia-northeast3` (서울) / Blaze 요금제
@@ -33,7 +33,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 3. **품목 식별 확장**: `품명 + 도금(3가/SUS) + 규격(M6*16 등)` 3요소로 품목 식별
 4. **SET 구성품 개별 관리**: `육각볼트 SET`의 총 SET 수량·구성비율은 무시하고, 실제 관리 대상인 **구성품(볼트/너트/스프링와셔/평와셔)**별로 개별 입출고 관리
 5. **입출고 항목**: 작업자, 일자, 품목, 수량, 입고/출고 + 보관위치(`location`), 비고(`note`) — 기본 화면은 아산노블 기준
-6. **엑셀 공동작업 양방향**: 아산노블과 동일한 **일자별 수불부 시트 (`현 재고` + ZONE별 30슬롯 시트)** 양방향 Import/Export + `_user/KDT-Inventory.xlsx` 입고 리스트 초기 이관 지원
+6. **엑셀 공동작업 양방향**: 요약 시트 + ZONE별 **40개 고정 슬롯(미등록 품목 빈 슬롯 포함)** 수불부 양방향 Import/Export, ZONE명 동기화, `_user/KDT-Inventory.xlsx` 입고 리스트 초기 이관 지원
 7. **초기 사용자 (6명)**: `관리자`, `김수현 팀장`, `황호동 반장`, `문자운 조장`, `김민기 조장`, `이호준 계장` (사용자관리에서 추가/수정/삭제)
 
 ---
@@ -44,7 +44,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 |---|---|---|
 | **그대로 재사용** | `Login`, `ConfirmationModal`, `UserManagerModal`, `DataMigrationModal`, `ManualModal` 골격, `utils/*`(api, logger, cacheBuster, formatters), `functions/auth.ts`·`users.ts`·`migration.ts`, Vite/ESLint/TS 설정, `backup_ver.ps1` | 명칭(`KDT`)·포트(`3500`)·리전(`asia-northeast3`)·기본 사용자 치환 |
 | **스키마 반영 수정** | `types.ts`, `InventoryList`(**1,000라인 초과→폴더 분리 리팩토링**), `StockForm`, `TransactionModal`, `Dashboard`, `MasterDataManagerModal`(대분류→ZONE + 별칭/생산수량), `ReportModal`·`MonthlyReportModal`·`MonthlyUsageReportModal`, `ExcelImport/*`, `TransactionHistoryImport`, `functions/inventory.ts`·`transactions.ts`·`masterData.ts`·`excel.ts`, `firestore.rules`/`indexes` | 도금·규격·단위·eaPerUnit·보관위치·2차 BOM 필드 반영, 정수 EA 처리 |
-| **신규 작성** | `KDT template.xlsx` (현 재고 + ZONE별 30슬롯 수불부), `KDT-Inventory.xlsx` 입고시트 파서(초기 데이터 임포트), `_Local_run_KDT.bat`, `_Cloud_run_KDT.bat` | KDT 전용 리소스 및 스크립트 |
+| **신규 작성** | `KDT template.xlsx` (요약 시트 + ZONE별 40슬롯 수불부), `KDT-Inventory.xlsx` 입고시트 파서(초기 데이터 임포트), `_Local_run_KDT.bat`, `_Cloud_run_KDT.bat` | KDT 전용 리소스 및 스크립트 |
 | **제외 (미이관)** | `_plugin/*` 4종, `AIAdvisor`, `scripts/*_server.py`, `hwp_generator.py`, `functions/schedule.ts`·`survey.ts` | 완전 제거 |
 
 ---
@@ -109,19 +109,25 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 
 ---
 
-## 5. 엑셀 공동작업 파일 (`KDT-Inventory.xlsx` 양방향 — 50슬롯 & 연도별 동적 캘린더)
+## 5. 엑셀 공동작업 파일 (양방향 — 대분류별 40슬롯 고정 & 연도별 캘린더)
 
-1. **`현 재고` 시트**:
+1. **요약 시트 (기본 `현 재고`)**:
    - 컬럼: `연번 | ZONE(대분류) | 품명 | 도금 | 규격 | 단위/환산 | 현재고(EA) | 보관위치 | 1대당소요 | 비고`
    - 선택된 대상 연도(`targetYear`, 예: 2026년 → 2027년)에 맞춰 타이틀(`{targetYear}년 KDT 자재 재고현황`) 및 각 ZONE 시트 연간 최종 잔량(`=ZONE시트!D390` 등) 자동 수식 참조
-2. **ZONE별 일자 수불부 시트 (30슬롯 → 50슬롯 확장)**:
+2. **ZONE별 일자 수불부 시트 (대분류당 40슬롯 고정)**:
    - 시트명 = ZONE 표시명 (`ZONE16_Plus`, `ZONE18` 등)
-   - **슬롯 확장**: ZONE당 소분류 최대 **50개 품목 슬롯** (`col = 2, 6, 10 ... 198`, 50슬롯 × 4열 = 200열) 동적 수식·서식 생성
+   - **고정 슬롯**: ZONE당 정확히 **40개 품목 슬롯** (`col = 2, 6, 10 ... 158`, 4열 간격), 미등록 품목용 빈 슬롯 포함. 등록 품목은 슬롯 앞에서부터 순서대로 배치
+   - **수불 이력 검증**: 품명 없는 슬롯은 직전 품목명을 상속하지 않으며, 템플릿의 날짜별 샘플 입출고 수량은 새 슬롯으로 복사하지 않음
+   - **인쇄 배율**: 요약 및 ZONE 시트의 페이지 설정을 40%로 고정
    - **연도별 캘린더 자동 갱신 (2026 → 2027 등)**:
      - 엑셀 내보내기 시 대상 연도(`targetYear`)를 기준으로 A열 1월~12월 일자 및 상단 연도 헤더를 자동 갱신
      - `targetYear` 이전 누적 잔고는 **Row 4 (기초 이월재고)** 로 자동 합산 이월하고, `targetYear` 당해 연도 입출고만 일자별 셀에 기록
    - 상단 헤더(R3): 고유 표시키 (`품명 [도금/규격]`) → 동일 품명 충돌 방지
-3. **ZONE 간 중복(공통) 소분류 및 현장 혼입·정산 대응**:
+3. **월별 재고 수불 보고서**:
+   - 대분류별 정확히 40행(등록 품목 + 미등록 슬롯)으로 고정하고 대분류마다 1페이지 출력
+   - A3 세로 방향, 대분류가 2개면 총 2페이지 (월별 보고서에만 적용)
+   - 월 경계는 `[월초, 다음 달 1일)` 반개구간으로 처리해 월말 거래를 포함하고 다음 달 1일 거래는 제외
+4. **ZONE 간 중복(공통) 소분류 및 현장 혼입·정산 대응**:
    - **엄격한 4요소 키 매칭**: `ZONE + 품명 + 도금 + 규격` 조합으로 ZONE별 장부 분리
    - **[공통자재 합산 뷰 (현장 혼입 실사 모드)]**: 재고 현황 화면에서 `품명 + 도금 + 규격` 기준으로 전 ZONE 재고를 합산해 **작업장 실물 총재고**와 **ZONE별 장부 배분량**을 동시에 대조하는 토글 뷰 제공
    - **[ZONE 완료 반납·이관 정산 기능]**: ZONE 작업 완료 시 잔여 재고를 반납 정산(출고)하거나 신규 ZONE으로 일괄 이관(정산출고 + 신규 ZONE 이관입고)하는 정산 모달 지원
@@ -137,11 +143,11 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | Hosting URL | asannoble-inventory.web.app | `https://kdt-inventory.web.app/login` |
 | 로컬 포트 | 3400 / 3410 | **`3500`** (단일 포트) |
 | 빌드 스크립트 | `_Local_run_inventory.bat` / `_Cloud_run_inventory.bat` | **`_Local_run_KDT.bat`** / **`_Cloud_run_KDT.bat`** (영문 ASCII 표준) |
-| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.3.2`**) |
+| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.3.8`**, 클라우드 배포 대기) |
 
 | MODE Flag (`Version.json`) | 초기값 | 비고 |
 |---|---|---|
-| `VERSION_MODE` | `1.3.2` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.3.7` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | ON → OFF | 초기 GUI 검증용 목업 분기 유지 (삭제 금지) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore + 로컬 분기 코드 보존 (캐시 금지) |
 
@@ -149,7 +155,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 
 ## 7. 단계별 추진 일정 및 실시간 모니터링 (Master Roadmap)
 
-> **실시간 상태**: **Phase 1 ~ Phase 4 (`Ver 1.3.2`) 전 과정 100% 구축 및 클라우드 배포·Hotfix·마이그레이션 정리 완료·운영 DB 32품목/33건 적재 완료!** (최종 갱신: `2026-11-19 17:03` / 버전: `Ver 1.3.2`)
+> **실시간 상태**: **Phase 1 ~ Phase 4 구축 완료, Excel 40슬롯/40% 인쇄·수불 이력 안정화 및 월별 보고서 대분류별 40행/A3 세로 1페이지·월말 경계 패치(Ver 1.3.8) 타입검사/프로덕션 빌드 통과, 클라우드 배포 대기** (최종 갱신: `2026-11-19` / 버전: `Ver 1.3.8`)
 > **운영 접속 URL**: **`https://kdt-inventory.web.app/login`** (서울 리전 `asia-northeast3` Cloud Functions v2 + Firestore 실시간 연동 완료)
 
 | 단계 | 세부 작업 | 상태 | 반영 버전 |
@@ -161,6 +167,8 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | **Phase 4** | **배포 및 실접속 검증**: 클린빌드 검증 → `backup/Ver1.2.0` → Firebase(`kdt-inventory`, 서울 리전 `asia-northeast3`) 배포 → 운영 DB 초기 32품목/33건/6명 사용자/`zoneMeta` 시드 적재 → `https://kdt-inventory.web.app/login` 실접속 및 API 200 OK 검증 완료 | **완료 (100%)** | Ver 1.3.0 |
 | **Hotfix** | **빌드 에러 해결 및 호환 심볼 추가**: `StepPreview.tsx`와 `formatters.ts`의 `formatStockWithRef` 누락 심볼 수정, `functions/src` 엄격 타입 검사 수정, Vite 클린 빌드(0 에러) 검증 후 Hosting 재배포 완료 | **완료 (100%)** | Ver 1.3.1 |
 | **Cleanup** | **마이그레이션 마무리 정리 및 운영 품질 정비**: 프론트엔드 `typecheck` 오류 수정, 로컬 Tailwind 빌드 복구(`tailwind.config.cjs`, `postcss.config.cjs`), 매뉴얼/내장 템플릿 및 엑셀 Import UI의 아산노블·요양원 잔재 제거, 클린빌드 및 Hosting 재배포 완료 | **완료 (100%)** | Ver 1.3.2 |
+| **Excel ZONE 동기화/이력 안정화** | 기준정보·요약·데이터 시트의 ZONE명 동기화, ZONE당 40슬롯 고정, 빈 슬롯 샘플 이력 제거, 대분류 일치 매칭, 인쇄 40% 고정 및 원본 엑셀 정정본 검증 | **완료 (클린빌드, 배포 대기)** | Ver 1.3.6 |
+| **월별 재고 수불 보고서** | 로컬 시간대 월말 경계 처리, 대분류별 40행 고정, A3 세로 1페이지/대분류 (현재 2개 대분류 = 2페이지) | **완료 (클린빌드, 배포 대기)** | Ver 1.3.8 |
 | **2차 과제** | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 (DB 스키마 선반영 완료) | 예정 | Ver 2.0.0 |
 
 ### ▶ Phase 4 (`Ver 1.3.0` ~ `Ver 1.3.2`) 세부 진행 로그 (실시간 갱신)
@@ -174,5 +182,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 - [x] `4-8` `LegacyParser.ts`, `excelExport.ts` 프론트엔드 `typecheck` 오류 수정 및 프로덕션 `tailwind CDN` 제거 후 로컬 Tailwind 빌드 체계 복구 완료
 - [x] `4-9` `ManualModal/*`, `sourceExporter.ts`, 엑셀 업로드/매핑/수불부 UI 문구를 KDT 기준으로 정리하여 아산노블·요양원 잔재 제거 완료
 - [x] `4-10` `_Cloud_run_KDT.bat` 재실행으로 `Ver 1.3.2` 클린빌드 및 Firebase Functions/Hosting 재배포 완료
-
-
+- [x] `4-11` ZONE 기준정보/Excel Main 및 데이터 탭 양방향 명칭 동기화, 수불부 ZONE 엄격 매칭, 타입검사 및 프로덕션 빌드 통과 (`Ver 1.3.4`, 배포 대기)
+- [x] `4-12` 수불 이력의 빈 4열 슬롯 품명 상속 및 템플릿 샘플 수량 복제 수정, 전체 Excel 인쇄 배율 40% 고정 (`Ver 1.3.6`)
+- [x] `4-13` `_user/KDT-Inventory-2026-20261119.xlsx`의 ZONE/품목 일치 및 빈 슬롯 48곳 검수, 원본 보존 정정본 생성; 품목 데이터 유지와 40% 배율 확인
+- [x] `4-14` 월별 재고 보고서의 한국 시간대 월 경계 보정 및 대분류당 40행/A3 세로 1페이지 출력 구성 (`Ver 1.3.8`)

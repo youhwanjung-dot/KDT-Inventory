@@ -18,7 +18,7 @@ import { formatOneDecimal, roundToOneDecimal } from '../utils/formatters';
 
 // 🎨 Multi-color 3D Bar Gradient Palette (Vibrant & Distinct)
 const BAR_3D_PALETTE = [
-  { top: '#60a5fa', mid: '#3b82f6', bottom: '#1d4ed8' }, // Blue
+  { top: '#fb923c', mid: '#f97316', bottom: '#c2410c' }, // Orange
   { top: '#34d399', mid: '#10b981', bottom: '#047857' }, // Emerald
   { top: '#c084fc', mid: '#a855f7', bottom: '#7e22ce' }, // Purple
   { top: '#fbbf24', mid: '#f59e0b', bottom: '#b45309' }, // Amber
@@ -255,14 +255,14 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
     <div className="h-full flex flex-col justify-between gap-3 overflow-hidden animate-fade-in select-none">
 
       {/* ── 1. Top Alert Ticker Bar (폰트 크기 일괄 +1 상향) ────────────────── */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xs border border-slate-800 flex items-center justify-between gap-4 shrink-0">
+      <div className="bg-gradient-to-r from-slate-900 via-orange-950 to-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xs border border-slate-800 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center shrink-0">
-            <Activity size={19} className="text-blue-400 animate-pulse" />
+          <div className="w-8 h-8 rounded-lg bg-orange-500/20 border border-orange-400/30 flex items-center justify-center shrink-0">
+            <Activity size={19} className="text-orange-400 animate-pulse" />
           </div>
           <div className="flex items-center gap-2.5 truncate">
             <span className="font-extrabold text-base tracking-wide text-white shrink-0">재고 관제 브리핑</span>
-            <span className="bg-blue-500/30 text-blue-300 text-[13px] font-bold px-2 py-0.5 rounded-md border border-blue-400/30 shrink-0">LIVE</span>
+            <span className="bg-orange-500/30 text-orange-300 text-[13px] font-bold px-2 py-0.5 rounded-md border border-orange-400/30 shrink-0">LIVE</span>
             <span className="text-[15px] text-slate-200 truncate">
               전체 <strong className="text-white font-black">{totalItems}개</strong> 품목 중 3개월 소모실적 기준 긴급 물품 <strong className="text-red-400 font-black">{lowStockItems.length}개</strong>
             </span>
@@ -289,20 +289,20 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
         {/* Card 1: Total Items ➔ INVENTORY (ALL) */}
         <div
           onClick={() => onNavigate?.('INVENTORY', 'ALL')}
-          className="group bg-white dark:bg-slate-900 p-3.5 px-4 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-[0.98] flex flex-col justify-between"
+          className="group bg-white dark:bg-slate-900 p-3.5 px-4 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-800 hover:border-orange-500 dark:hover:border-orange-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-[0.98] flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-[15px] font-extrabold text-slate-600 dark:text-slate-300">
-            <span className="group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+            <span className="group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors flex items-center gap-1.5">
               총 관리 품목
-              <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500" />
+              <ExternalLink size={14} className="opacity-0 group-hover:opacity-100 transition-opacity text-orange-500" />
             </span>
-            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-all">
+            <div className="p-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg group-hover:bg-orange-600 group-hover:text-white transition-all">
               <Package size={18} />
             </div>
           </div>
           <div className="flex items-baseline justify-between mt-1">
             <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{totalItems}<span className="text-base font-normal text-slate-500 ml-1">개</span></h3>
-            <span className="text-[13px] text-blue-600 font-bold bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded flex items-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+            <span className="text-[13px] text-orange-600 font-bold bg-orange-50 dark:bg-orange-950/50 px-2 py-0.5 rounded flex items-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
               전체목록 ➔
             </span>
           </div>
@@ -384,7 +384,7 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
         <div className="lg:col-span-4 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
           <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
+              <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
               <h3 className="text-[15px] font-extrabold text-slate-800 dark:text-slate-100">분기별 재고 건실도 추이 (동심원 링)</h3>
             </div>
           </div>
@@ -535,7 +535,7 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
           <div className="space-y-1.5 flex-1 justify-around my-1 flex flex-col">
             {topTurnoverItems.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-slate-400 text-sm py-4 space-y-1">
-                <TrendingUp size={24} className="text-blue-500" />
+                <TrendingUp size={24} className="text-orange-500" />
                 <p className="font-bold text-slate-700 dark:text-slate-300 text-xs">최근 출고 실적이 집계 대기 중입니다.</p>
               </div>
             ) : (
@@ -576,10 +576,10 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
       <div className="bg-white dark:bg-slate-900 p-3.5 px-4 rounded-xl shadow-xs border border-slate-200/80 dark:border-slate-800 shrink-0">
         <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
             <h3 className="text-[15px] font-extrabold text-slate-800 dark:text-slate-100">카테고리별 품목 현황 (3D 입체 다채색 모듈)</h3>
           </div>
-          <span className="text-[13px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200/60">
+          <span className="text-[13px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/60 px-2 py-0.5 rounded border border-orange-200/60">
             막대 클릭 시 해당 카테고리 현황 이동 ➔
           </span>
         </div>

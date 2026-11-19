@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   AlertTriangle,
   ArrowDownUp,
@@ -51,7 +51,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div className="mb-2 flex items-center gap-2 font-bold text-slate-800">
-                    <ShieldCheck size={14} className="text-blue-600" />
+                    <ShieldCheck size={14} className="text-orange-600" />
                     권한 구분
                   </div>
                   <p>관리자 / 입고 담당 / 출고 담당 권한이 로그인 계정별로 표시됩니다.</p>
@@ -87,11 +87,11 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
             <Snapshot caption="재고 화면에서 확인할 항목">
               <div className="grid grid-cols-3 gap-2 text-[10.5px]">
                 <div className="rounded border border-slate-200 p-2 text-center">
-                  <Warehouse size={16} className="mx-auto mb-1 text-indigo-600" />
+                  <Warehouse size={16} className="mx-auto mb-1 text-orange-600" />
                   ZONE(대분류)
                 </div>
                 <div className="rounded border border-slate-200 p-2 text-center">
-                  <Package size={16} className="mx-auto mb-1 text-blue-600" />
+                  <Package size={16} className="mx-auto mb-1 text-orange-600" />
                   품명 / 도금 / 규격
                 </div>
                 <div className="rounded border border-slate-200 p-2 text-center">
@@ -156,7 +156,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 rounded border border-slate-200 p-2">
-                  <ArrowDownUp size={14} className="text-blue-600" />
+                  <ArrowDownUp size={14} className="text-orange-600" />
                   <span>
                     <strong>수불부 등록</strong>: 일자별 수불부 기록을 가져옵니다.
                   </span>
@@ -213,7 +213,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
               </div>
               <div className="rounded border border-slate-200 p-3">
                 <div className="mb-1 flex items-center gap-2 font-bold">
-                  <Settings size={14} className="text-indigo-600" /> ZONE·기준정보 관리
+                  <Settings size={14} className="text-orange-600" /> ZONE·기준정보 관리
                 </div>
                 ZONE 별칭, 정렬, 생산수량 메타 관리
               </div>
@@ -282,7 +282,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
           <Snapshot caption="관리자용 운영 메뉴">
             <div className="space-y-2 text-[11px]">
               <div className="flex items-center gap-2 rounded border border-slate-200 p-2">
-                <LayoutDashboard size={14} className="text-blue-600" />
+                <LayoutDashboard size={14} className="text-orange-600" />
                 대시보드: 위험재고와 ZONE별 현황 확인
               </div>
               <div className="flex items-center gap-2 rounded border border-slate-200 p-2">
@@ -290,7 +290,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
                 일괄 등록 / 수불부 등록: 엑셀 데이터 반영
               </div>
               <div className="flex items-center gap-2 rounded border border-slate-200 p-2">
-                <Warehouse size={14} className="text-indigo-600" />
+                <Warehouse size={14} className="text-orange-600" />
                 재고 현황: ZONE별 조회, 공통자재 합산보기, 정산 기능
               </div>
             </div>

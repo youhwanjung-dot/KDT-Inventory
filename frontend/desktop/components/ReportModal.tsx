@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, MasterData } from '../types';
@@ -184,7 +184,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
       <div className="fixed top-4 right-4 flex gap-2 z-[110] no-print">
         <button
           onClick={handlePrint}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 font-medium transition-colors"
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 font-medium transition-colors"
         >
           <Printer size={18} />
           보고서 인쇄

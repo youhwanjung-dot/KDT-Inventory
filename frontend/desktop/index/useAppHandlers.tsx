@@ -23,7 +23,7 @@ import {
 function makeProgressMsg(text: string): React.ReactNode {
   return (
     <div className="flex items-center gap-3">
-      <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+      <Loader2 className="h-5 w-5 animate-spin text-orange-600 dark:text-orange-400" />
       <span>{text}</span>
     </div>
   );
@@ -278,7 +278,48 @@ export function useAppHandlers(state: AppState) {
           }
 
           const mergedInventory = Array.from(mergedMap.values());
-          await api.migrateData({ inventory: mergedInventory, transactions });
+          const nextMasterData: MasterData = {
+            ...masterData,
+            categories: [...masterData.categories],
+            namesByCategory: { ...masterData.namesByCategory },
+            nameOrder: [...masterData.nameOrder],
+            zoneMeta: { ...(masterData.zoneMeta || {}) },
+          };
+
+          importedItems.forEach((item) => {
+            const category = (item.category || '').trim();
+            const name = (item.name || '').trim();
+            if (!category) return;
+
+            if (!nextMasterData.categories.includes(category)) {
+              nextMasterData.categories.push(category);
+            }
+            const categoryNames = nextMasterData.namesByCategory[category] || [];
+            if (name && !categoryNames.includes(name)) {
+              nextMasterData.namesByCategory[category] = [...categoryNames, name];
+            }
+            if (name && !nextMasterData.nameOrder.includes(name)) {
+              nextMasterData.nameOrder.push(name);
+            }
+
+            const matchingZone = Object.values(nextMasterData.zoneMeta || {}).find(
+              (zone) => zone.displayName === category
+            );
+            if (!matchingZone) {
+              const zoneId = item.zoneId || category;
+              nextMasterData.zoneMeta![zoneId] = {
+                zoneId,
+                displayName: category,
+                aliasHistory: [],
+              };
+            }
+          });
+
+          await Promise.all([
+            api.migrateData({ inventory: mergedInventory, transactions }),
+            api.saveMasterData(nextMasterData),
+          ]);
+          setMasterData(nextMasterData);
 
           const parts = [];
           if (addedCount > 0) parts.push(`신규 ${addedCount}건`);

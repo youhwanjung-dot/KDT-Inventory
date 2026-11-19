@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { X, Download, Upload, History, AlertTriangle, CheckCircle, Save } from 'lucide-react';
 import { InventoryItem, InventoryTransaction, MasterData } from '../types';
 import { ActionLogger } from '../utils/logger';
@@ -172,7 +172,7 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
         {/* Header */}
         <div className="bg-slate-50 dark:bg-slate-700/50 px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <History className="text-indigo-600 dark:text-indigo-400" size={24} />
+            <History className="text-orange-600 dark:text-orange-400" size={24} />
             시스템 백업 및 롤백
           </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
@@ -181,8 +181,8 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
         </div>
 
         <div className="p-6 space-y-6">
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-lg text-sm text-indigo-900 dark:text-indigo-300 flex items-start gap-3 border border-indigo-100 dark:border-indigo-800">
-             <AlertTriangle size={20} className="shrink-0 mt-0.5 text-indigo-600 dark:text-indigo-400" />
+          <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg text-sm text-orange-900 dark:text-orange-300 flex items-start gap-3 border border-orange-100 dark:border-orange-800">
+             <AlertTriangle size={20} className="shrink-0 mt-0.5 text-orange-600 dark:text-orange-400" />
              <div>
                <p className="font-bold mb-1">통합 데이터 관리</p>
                <p>
@@ -196,10 +196,10 @@ const DataMigrationModal: React.FC<DataMigrationModalProps> = ({ items, transact
             {/* Backup Button */}
             <button 
               onClick={handleExport}
-              className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-slate-200 dark:border-slate-600 rounded-xl hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:hover:border-blue-500 transition-all group"
+              className="flex flex-col items-center justify-center gap-3 p-6 border-2 border-slate-200 dark:border-slate-600 rounded-xl hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 dark:hover:border-orange-500 transition-all group"
             >
-              <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-full group-hover:bg-blue-100 dark:group-hover:bg-blue-800 transition-colors">
-                <Save size={24} className="text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-300" />
+              <div className="p-3 bg-slate-100 dark:bg-slate-700 rounded-full group-hover:bg-orange-100 dark:group-hover:bg-orange-800 transition-colors">
+                <Save size={24} className="text-slate-600 dark:text-slate-300 group-hover:text-orange-600 dark:group-hover:text-orange-300" />
               </div>
               <div className="text-center">
                 <span className="block font-bold text-slate-800 dark:text-slate-100">전체 백업 (Export)</span>

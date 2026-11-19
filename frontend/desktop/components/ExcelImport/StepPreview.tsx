@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { FieldDef } from '../../constants';
@@ -30,11 +30,11 @@ const StepPreview: React.FC<StepPreviewProps> = ({
             <div className="flex justify-between items-center mb-4">
                 <div className="text-sm text-slate-600 dark:text-slate-300">
                     {isLegacyMode ? (
-                        <span className="flex items-center gap-2 text-blue-600 font-bold">
+                        <span className="flex items-center gap-2 text-orange-600 font-bold">
                             <CheckCircle size={16} /> KDT 엑셀 양식(입고시트 / 현 재고)이 감지되어 자동으로 변환되었습니다. (총 {previewItems.length}건)
                         </span>
                     ) : (
-                        <span>총 <span className="font-bold text-blue-600 dark:text-blue-400">{previewItems.length}</span>개의 데이터가 변환되었습니다.</span>
+                        <span>총 <span className="font-bold text-orange-600 dark:text-orange-400">{previewItems.length}</span>개의 데이터가 변환되었습니다.</span>
                     )}
                 </div>
             </div>
@@ -59,7 +59,7 @@ const StepPreview: React.FC<StepPreviewProps> = ({
                                 <td className="p-2">{item.name}</td>
                                 <td className="p-2 text-center text-xs">{item.plating || '-'}</td>
                                 <td className="p-2 text-center text-xs">{item.spec || '-'}</td>
-                                <td className="p-2 text-right font-bold text-blue-600">{formatStockWithUnit(item.currentStock, item.unit, item.eaPerUnit)}</td>
+                                <td className="p-2 text-right font-bold text-orange-600">{formatStockWithUnit(item.currentStock, item.unit, item.eaPerUnit)}</td>
                                 <td className="p-2 text-center">{item.unit}</td>
                                 <td className="p-2 text-xs text-slate-500">{item.note || ''}</td>
                             </tr>
@@ -71,7 +71,7 @@ const StepPreview: React.FC<StepPreviewProps> = ({
             <div className="mt-4 flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                     onClick={handleAnalyzeAndConfirm}
-                    className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center gap-2"
+                    className="px-6 py-2 bg-orange-600 text-white hover:bg-orange-700 rounded-lg flex items-center gap-2"
                 >
                     <CheckCircle size={18} />
                     분석 및 등록

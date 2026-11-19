@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { APP_VERSION } from '../../constants';
 
 export const ManualPage: React.FC<{ pageNumber: number, totalPages: number, children: React.ReactNode }> = ({ pageNumber, totalPages, children }) => (
@@ -16,7 +16,7 @@ export const H1: React.FC<{ children: React.ReactNode, className?: string }> = (
 );
 
 export const H2: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className = '' }) => (
-    <h2 className={`text-sm font-bold text-blue-800 mt-2 mb-2 pb-1 border-b border-blue-200 tracking-tight shrink-0 ${className}`}>{children}</h2>
+    <h2 className={`text-sm font-bold text-orange-800 mt-2 mb-2 pb-1 border-b border-orange-200 tracking-tight shrink-0 ${className}`}>{children}</h2>
 );
 
 export const H3: React.FC<{ children: React.ReactNode, className?: string }> = ({ children, className = '' }) => (
@@ -45,7 +45,7 @@ export const Snapshot: React.FC<{ children: React.ReactNode, caption?: string }>
 );
 
 export const Tip: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="p-2 bg-blue-50/90 border-l-4 border-blue-500 text-blue-900 my-1 text-[11px] rounded-r-lg leading-normal shadow-2xs shrink-0">
+    <div className="p-2 bg-orange-50/90 border-l-4 border-orange-500 text-orange-900 my-1 text-[11px] rounded-r-lg leading-normal shadow-2xs shrink-0">
         {children}
     </div>
 );

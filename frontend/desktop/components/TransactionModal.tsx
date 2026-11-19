@@ -18,6 +18,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { InventoryItem, InventoryTransaction, TxPermission, User as UserType } from '../types';
+import { USER_DEPARTMENTS } from '../constants';
 import { formatInteger, formatStockWithUnit, roundToInt } from '../utils/formatters';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -32,13 +33,17 @@ interface TransactionModalProps {
   onClose: () => void;
 }
 
-const DEPARTMENTS = ['자재팀', '생산팀', '조립라인', '품질팀', '출하팀', '기타부서'];
+const DEPARTMENTS: string[] = [...USER_DEPARTMENTS];
 const REASONS_IN = ['자재입고', '추가입고', '반품입고', '직접입력'];
 const REASONS_OUT = ['라인불출', '추가불출', '불량교체', '직접입력'];
 
 const resolveTxPermission = (u: UserType): TxPermission => {
   if (u.role === 'admin') return 'ALL';
   return u.txPermission || 'OUT_ONLY';
+};
+
+const getDefaultDepartmentByWorker = (workerName: string, userList: UserType[]): string => {
+  return userList.find((user) => user.name === workerName)?.department || '제조팀';
 };
 
 const TransactionModal: React.FC<TransactionModalProps> = ({
@@ -65,7 +70,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   const [packCalcInput, setPackCalcInput] = useState<string>('');
 
   const [worker, setWorker] = useState(currentUser.name);
-  const [department, setDepartment] = useState(DEPARTMENTS[0]);
+  const [department, setDepartment] = useState(getDefaultDepartmentByWorker(currentUser.name, users));
   const [customDepartment, setCustomDepartment] = useState('');
 
   const [reason, setReason] = useState(defaultType === 'IN' ? REASONS_IN[0] : REASONS_OUT[0]);
@@ -121,7 +126,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     setQuantity('1');
     setPackCalcInput('');
     setWorker(currentUser.name);
-    setDepartment(DEPARTMENTS[0]);
+    setDepartment(getDefaultDepartmentByWorker(currentUser.name, users));
     setReason(defaultType === 'IN' ? REASONS_IN[0] : REASONS_OUT[0]);
     setCustomDepartment('');
     setCustomReason('');
@@ -131,7 +136,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     resetForm();
     setHistoryView('all');
-  }, [item, currentUser.id, currentUser.txPermission]);
+  }, [item, currentUser.id, currentUser.txPermission, currentUser.department, users]);
 
   const handleTypeChange = (newType: 'IN' | 'OUT') => {
     if (newType === 'IN' && !canIn) return;
@@ -149,6 +154,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
     if (!Number.isNaN(num) && num > 0) {
       setQuantity(String(Math.round(num * factor)));
     }
+  };
+
+  const handleWorkerChange = (workerName: string) => {
+    setWorker(workerName);
+    setDepartment(getDefaultDepartmentByWorker(workerName, users));
+    setCustomDepartment('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -253,20 +264,20 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const specBadge = [item.plating, item.spec].filter(Boolean).join(' / ');
   const inputClass =
-    'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors';
+    'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors';
   const selectClass = `${inputClass} appearance-none bg-no-repeat bg-[right_0.75rem_center] bg-[length:1em_1em] pr-8`;
 
   return (
     <div className="fixed inset-0 bg-black/60 dark:bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh] transition-colors border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-[1180px] xl:max-w-[1240px] flex flex-col max-h-[90vh] transition-colors border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-between items-start shrink-0">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <FileText className="text-blue-600 dark:text-blue-400" size={22} />
+              <FileText className="text-orange-600 dark:text-orange-400" size={22} />
               <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">입출고 관리 및 이력</h2>
               {permission === 'IN_ONLY' && (
-                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300">
+                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300">
                   입고 담당 모드
                 </span>
               )}
@@ -277,7 +288,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               )}
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400 font-medium flex flex-wrap items-center gap-2">
-              <span className="font-bold text-indigo-600 dark:text-indigo-400">{item.category}</span>
+              <span className="font-bold text-orange-600 dark:text-orange-400">{item.category}</span>
               <span>&gt;</span>
               <span className="text-slate-800 dark:text-slate-200 font-bold">{item.name}</span>
               {specBadge && (
@@ -288,7 +299,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <span className="text-slate-300">|</span>
               <span>
                 현재고:{' '}
-                <span className="text-blue-600 dark:text-blue-400 font-bold text-base">
+                <span className="text-orange-600 dark:text-orange-400 font-bold text-base">
                   {formatStockWithUnit(item.currentStock, item.unit, item.eaPerUnit)}
                 </span>
               </span>
@@ -306,7 +317,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
         {/* Body Layout: 2 Columns */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: Form */}
-          <div className="w-[420px] border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 overflow-y-auto custom-scrollbar shrink-0">
+          <div className="w-[460px] xl:w-[500px] border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 overflow-y-auto custom-scrollbar shrink-0">
             <div className="p-6 space-y-5">
               {/* Section Title */}
               <div
@@ -329,7 +340,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     !canIn
                       ? 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/40 dark:border-slate-800 dark:text-slate-600 cursor-not-allowed opacity-60'
                       : type === 'IN'
-                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-sm ring-1 ring-blue-500'
+                      ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 shadow-sm ring-1 ring-orange-500'
                       : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
@@ -358,13 +369,13 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <form id="transaction-form" onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="tx-date" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <label htmlFor="tx-date" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                       <Calendar size={13} /> 작업일자
                     </label>
                     <input id="tx-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} required />
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="tx-quantity" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <label htmlFor="tx-quantity" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                       <FileText size={13} /> {type === 'IN' ? '입고' : '출고'} 수량 (EA)
                     </label>
                     <input
@@ -379,7 +390,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       placeholder="0"
                       step="1"
                       min="1"
-                      className={`${inputClass} text-right font-bold text-lg ${type === 'IN' ? 'text-blue-600' : 'text-red-600'}`}
+                      className={`${inputClass} text-right font-bold text-lg ${type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}
                       required
                     />
                   </div>
@@ -387,8 +398,8 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
                 {/* Fixed Pack Conversion Helper (SET / BOX -> EA) */}
                 {hasUnitConversion && (
-                  <div className="p-2.5 rounded-lg bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/50 flex items-center gap-2 text-xs">
-                    <Calculator size={14} className="text-indigo-500 shrink-0" />
+                  <div className="p-2.5 rounded-lg bg-orange-50/70 dark:bg-orange-950/30 border border-orange-200/70 dark:border-orange-800/50 flex items-center gap-2 text-xs">
+                    <Calculator size={14} className="text-orange-500 shrink-0" />
                     <span className="text-slate-600 dark:text-slate-300 shrink-0 font-medium">
                       {item.unit} 환산 입력 (×{formatInteger(item.eaPerUnit)} EA):
                     </span>
@@ -399,17 +410,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       value={packCalcInput}
                       onChange={(e) => handlePackCalcChange(e.target.value)}
                       placeholder={`${item.unit} 수`}
-                      className="w-24 px-2 py-1 text-right border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
+                      className="w-24 px-2 py-1 text-right border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold"
                     />
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label htmlFor="tx-worker" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <label htmlFor="tx-worker" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                       <User size={13} /> 작업자
                     </label>
-                    <select id="tx-worker" value={worker} onChange={(e) => setWorker(e.target.value)} className={selectClass}>
+                    <select id="tx-worker" value={worker} onChange={(e) => handleWorkerChange(e.target.value)} className={selectClass}>
                       {users.map((u) => (
                         <option key={u.id} value={u.name}>
                           {u.name}
@@ -418,7 +429,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <label htmlFor="tx-dept" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <label htmlFor="tx-dept" className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                       <Building size={13} /> 담당부서/현장
                     </label>
                     <select id="tx-dept" value={department} onChange={(e) => setDepartment(e.target.value)} className={selectClass}>
@@ -442,7 +453,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                     <FileText size={13} /> 비고 (사유 / 소포장 참고)
                   </label>
                   <select id="tx-reason" value={reason} onChange={(e) => setReason(e.target.value)} className={selectClass}>
@@ -491,7 +502,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                   type="submit"
                   form="transaction-form"
                   className={`w-full px-4 py-3 rounded-lg text-white font-bold shadow-md transition-all flex items-center justify-center gap-2 hover:shadow-lg hover:-translate-y-0.5 text-sm whitespace-nowrap ${
-                    editingTx ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'
+                    editingTx ? 'bg-orange-500 hover:bg-orange-600' : 'bg-orange-600 hover:bg-orange-700'
                   }`}
                 >
                   <Check size={16} />
@@ -503,17 +514,17 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
           {/* Right Column: History */}
           <div className="flex-1 flex flex-col bg-slate-50/50 dark:bg-slate-900/50 min-w-0">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0">
-              <div className="flex items-center gap-2">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center gap-3 bg-white dark:bg-slate-900 sticky top-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <History size={20} className="text-slate-500" />
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm whitespace-nowrap">
                   {historyView === 'all' ? '전체 이력' : historyView === 'year' ? '연간 이력 (선택년도)' : '월간 이력 (선택월)'}
                 </h3>
               </div>
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg shrink-0">
                 <button
                   onClick={() => setHistoryView('month')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
                     historyView === 'month'
                       ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -523,7 +534,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </button>
                 <button
                   onClick={() => setHistoryView('year')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
                     historyView === 'year'
                       ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -533,7 +544,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                 </button>
                 <button
                   onClick={() => setHistoryView('all')}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors ${
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-colors whitespace-nowrap ${
                     historyView === 'all'
                       ? 'bg-white dark:bg-slate-600 text-slate-800 dark:text-slate-100 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700'
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -548,12 +559,12 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <table className="w-full text-sm text-left border-collapse">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 sticky top-0 z-10 text-xs uppercase border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">날짜</th>
-                    <th className="px-4 py-3 font-semibold text-center">구분</th>
-                    <th className="px-4 py-3 font-semibold text-right">수량 (EA)</th>
-                    <th className="px-4 py-3 font-semibold text-right">잔고 (EA)</th>
-                    <th className="px-4 py-3 font-semibold">작업자</th>
-                    <th className="px-4 py-3 font-semibold">비고</th>
+                    <th className="px-4 py-3 font-semibold whitespace-nowrap">날짜</th>
+                    <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">구분</th>
+                    <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">수량 (EA)</th>
+                    <th className="px-4 py-3 font-semibold text-right whitespace-nowrap">잔고 (EA)</th>
+                    <th className="px-4 py-3 font-semibold whitespace-nowrap">작업자</th>
+                    <th className="px-4 py-3 font-semibold whitespace-nowrap">비고</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -570,23 +581,22 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold border ${
                             tx.type === 'IN'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
+                              ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
                               : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
                           }`}
                         >
                           {tx.type === 'IN' ? '입고' : '출고'}
                         </span>
                       </td>
-                      <td className={`px-4 py-3 text-right font-bold font-mono ${tx.type === 'IN' ? 'text-blue-600' : 'text-red-600'}`}>
+                      <td className={`px-4 py-3 text-right font-bold font-mono ${tx.type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}>
                         {tx.type === 'IN' ? '+' : '-'}
                         {formatInteger(tx.quantity)}
                       </td>
                       <td className="px-4 py-3 text-right text-slate-500 dark:text-slate-400 text-xs font-mono">
                         {formatInteger((tx as any).computedStock ?? tx.currentStockSnapshot)}
                       </td>
-                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs">
-                        <div className="font-medium">{tx.worker}</div>
-                        <div className="text-[10px] text-slate-400">{tx.department}</div>
+                      <td className="px-4 py-3 text-slate-700 dark:text-slate-300 text-xs font-medium">
+                        {tx.worker}
                       </td>
                       <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs max-w-[180px] truncate" title={tx.reason}>
                         {editingTx?.id === tx.id ? <span className="font-bold text-orange-600 dark:text-orange-400">선택됨</span> : tx.reason}
@@ -618,7 +628,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <p>선택하신 이력을 정말 삭제하시겠습니까?</p>
               <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded text-center my-2">
                 <span className="font-mono text-slate-600 dark:text-slate-400 mr-2">{deleteTarget.date}</span>
-                <span className={`font-bold ${deleteTarget.type === 'IN' ? 'text-blue-600' : 'text-red-600'}`}>
+                <span className={`font-bold ${deleteTarget.type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}>
                   {deleteTarget.type === 'IN' ? '입고' : '출고'} {formatInteger(deleteTarget.quantity)} EA
                 </span>
               </div>

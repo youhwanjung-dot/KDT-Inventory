@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+﻿import React, { useRef } from 'react';
 import { Upload } from 'lucide-react';
 
 interface StepUploadProps {
@@ -19,7 +19,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ onFileUpload }) => {
                 onChange={onFileUpload}
             />
             <div className="bg-white dark:bg-slate-700 p-4 rounded-full shadow-sm mb-4">
-                <Upload size={32} className="text-blue-500 dark:text-blue-400" />
+                <Upload size={32} className="text-orange-500 dark:text-orange-400" />
             </div>
             <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">엑셀 파일 업로드</h3>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm text-center">

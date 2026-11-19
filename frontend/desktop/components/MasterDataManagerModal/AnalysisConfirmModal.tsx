@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { AnalysisResult } from './types';
 
@@ -29,7 +29,7 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
           className={`px-5 py-4 border-b flex items-center gap-2 ${
             isDanger
               ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900 text-red-700 dark:text-red-300'
-              : 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900 text-blue-700 dark:text-blue-300'
+              : 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900 text-orange-700 dark:text-orange-300'
           }`}
         >
           <AlertTriangle size={20} />
@@ -40,15 +40,15 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
           {analysis.type === 'UPDATE' && (
             <div className="flex items-center justify-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg font-bold">
               <span className="text-slate-500">{analysis.targetValue}</span>
-              <ArrowRight size={16} className="text-blue-500" />
-              <span className="text-blue-600 dark:text-blue-400">{analysis.newValue}</span>
+              <ArrowRight size={16} className="text-orange-500" />
+              <span className="text-orange-600 dark:text-orange-400">{analysis.newValue}</span>
             </div>
           )}
 
           {analysis.type === 'MOVE_SUBCATEGORY' && (
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-center space-y-1">
               <div className="font-bold text-slate-900 dark:text-white">{analysis.targetValue}</div>
-              <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
+              <div className="text-xs text-orange-600 dark:text-orange-400 font-semibold">
                 → 대상 ZONE: {analysis.newValue}
               </div>
             </div>
@@ -61,7 +61,7 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
           )}
 
           <p>
-            영향을 받는 자재 품목: <strong className="text-blue-600 dark:text-blue-400">{analysis.affectedCount}건</strong>
+            영향을 받는 자재 품목: <strong className="text-orange-600 dark:text-orange-400">{analysis.affectedCount}건</strong>
           </p>
 
           {analysis.affectedSample.length > 0 && (
@@ -91,7 +91,7 @@ const AnalysisConfirmModal: React.FC<AnalysisConfirmModalProps> = ({
           <button
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-bold text-white rounded-lg shadow ${
-              isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+              isDanger ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'
             }`}
           >
             {isDanger ? '삭제 실행' : '변경 적용'}

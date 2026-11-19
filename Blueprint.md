@@ -7,7 +7,7 @@
 
 | Flag | 현재 값 | 설명 |
 |---|---|---|
-| `VERSION_MODE` | `Ver 1.3.1` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.3.7` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | `false` | `true` 전환 시 초기 목업 데이터 분기 동작 (코드 보존) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore (`asia-northeast3` 서울) / 로컬 분기 보존 |
 
@@ -86,7 +86,7 @@ KDT-Inventory_3500/
 │        ├─ Login.tsx                 (KDT 로그인 모달 — 버전/빌드타임/입출고 권한 표시)
 │        ├─ Dashboard.tsx             (메인 대시보드)
 │        ├─ InventoryList.tsx         (Rule 5 윈도우 쉘 — Ver 1.1.0 리팩토링)
-│        ├─ InventoryList/            (재고 목록·툴바·테이블·30슬롯 엑셀 내보내기 모듈)
+│        ├─ InventoryList/            (재고 목록·툴바·테이블·대분류별 40슬롯 엑셀 내보내기 모듈)
 │        │  ├─ index.tsx
 │        │  ├─ types.ts
 │        │  ├─ InventoryToolbar.tsx
@@ -103,7 +103,7 @@ KDT-Inventory_3500/
 │        ├─ UserManagerModal.tsx      (사용자 및 입출고 권한 ALL/IN_ONLY/OUT_ONLY 관리)
 │        ├─ DataMigrationModal.tsx    (DB 백업/복원 모달)
 │        ├─ InventoryReport.tsx       (재고 현황 보고서)
-│        ├─ MonthlyReportModal.tsx    (월별 수불부 보고서)
+│        ├─ MonthlyReportModal.tsx    (월말 날짜 경계 보정·대분류당 40슬롯/A3 세로 1페이지 보고서)
 │        ├─ MonthlyUsageReportModal.tsx (연간 사용현황 보고서)
 │        ├─ ReportModal.tsx
 │        ├─ ConfirmationModal.tsx
@@ -145,8 +145,9 @@ KDT-Inventory_3500/
 | `types.ts` / `formatters.ts` | 모든 재고·수불은 **정수 EA 단일 기준**, 고정 소포장(`SET`/`BOX`)은 `eaPerUnit` 환산 병기 (`22,000 EA (11,000 SET)`). 2차 과제용 `qtyPerProduct`, `setGroup`, `zoneMeta.plannedProductionQty` 필드 선반영 |
 | `users.ts` / `auth.ts` / `UserManagerModal` | 관리자(`ALL`), 김수현 팀장(`IN_ONLY` 입고전용), 현장 반장·조장·계장 4명(`OUT_ONLY` 출고전용) 권한 분리 |
 | `TransactionModal.tsx` | 로그인 사용자 `txPermission`에 따라 입고 또는 출고 탭/버튼 비활성화 (Phase 3 반영) |
-| `InventoryList` (리팩토링 예정) | Rule 5(1,000라인 초과 폴더 분리) 준수하여 `InventoryList/` 폴더로 세분화 예정, 도금/규격/보관위치/EA 환산 컬럼 반영 |
-| `KDT template.xlsx` & Import/Export | 아산노블과 동일한 `현 재고` + ZONE별 30슬롯 일자별 수불부 양방향 동기화 + `KDT-Inventory.xlsx` 초기 입고 데이터 적재 |
+| `InventoryList` | Rule 5(1,000라인 초과 폴더 분리) 준수 리팩토링 완료. 대분류별 40개 고정 슬롯(미등록 품목용 빈 슬롯 포함), 기준정보 ZONE명 동기화, 인쇄 배율 40% 적용 |
+| `KDT template.xlsx` & Import/Export | 요약 시트 + ZONE별 40슬롯 일자별 수불부 양방향 동기화. 미사용 슬롯 품명 초기화, 템플릿 날짜별 샘플 입출고값 비복제, 초기 입고 데이터 적재 지원 |
+| `MonthlyReportModal` | 로컬 달력 기준 월 선택 및 `[월초, 다음 달 1일)` 경계 적용(월말 포함). 대분류마다 40행을 고정하고 A3 세로 1페이지씩 출력 (현재 2개 대분류 = 2페이지) |
 
 ---
 
@@ -163,10 +164,7 @@ KDT-Inventory_3500/
 
 ## 6. 향후 개발 일정 (Roadmap)
 
-- **Phase 1 (Ver 1.0.0)**: 기반 이식, Firebase 웹앱·설정, 빌드 스크립트, 클린빌드 검증, Git 초기화 (진행중)
-- **Phase 2 (Ver 1.1.0)**: Firestore(서울) 활성화 & Functions/Hosting 1차 배포 확인, KDT 초기 데이터(`ZONE16_Plus` 10건 + `ZONE18` 22품목/23입고건) 파싱 및 시드 구성
-- **Phase 3 (Ver 1.2.0)**: `InventoryList` 1,000라인 리팩토링, `StockForm`·`TransactionModal`(입출고 권한 비활성화)·`UserManagerModal`(권한 설정)·`MasterDataManagerModal`(ZONE 별칭/생산수량) KDT 전면 개편
-- **Phase 4 (Ver 1.3.0)**: 대시보드·재고현황 보고서·월별 수불부·연간 사용현황 KDT 용어/정수 EA 최적화 + `print-prep-mode` 인쇄 보완
-- **Phase 5 (Ver 1.4.0)**: `KDT template.xlsx` (30슬롯) 제작 + 양방향 수불부 Import/Export + `_user/KDT-Inventory.xlsx` 입고시트 임포터 완성
-- **Phase 6 (Ver 1.5.0)**: 최종 로컬/클라우드 배포 검증, 운영 URL 실접속 테스트, KDT 사용자 매뉴얼 갱신
+- **Phase 1~4 (Ver 1.0.0~1.3.2)**: 기반 이식, 권한·UI·데이터 시드, 서울 리전 배포 및 운영 검증, KDT 용어·매뉴얼 정비 완료
+- **Excel/월별 보고서 (Ver 1.3.4~1.3.8)**: 대분류 양방향 동기화, 40슬롯 고정, 빈 슬롯 이력 오등록 방지, Excel 인쇄 40%, 월별 보고서 대분류별 40행·A3 세로 1페이지 및 월말 경계 보정 완료
+- **클린빌드/배포**: Ver 1.3.8 타입검사 및 프로덕션 빌드 완료; Firebase 배포는 대기
 - **2차 과제 (Ver 2.0.0)**: ZONE 목표 생산수량 × `qtyPerProduct` 기반 필요/부족 자재 자동 산출

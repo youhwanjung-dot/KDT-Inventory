@@ -27,7 +27,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
   const [statusText, setStatusText] = useState('보안 세션 및 캐시 정밀 검증 중');
 
   useEffect(() => {
-    document.title = '로그인 | KDT 자재 재고관리 시스템';
+    document.title = '로그인 | KDT 자재관리 시스템';
     const lastUserId = localStorage.getItem('kdt_last_login_user_id');
     if (lastUserId && users.length > 0) {
       const idx = users.findIndex((u) => u.id === lastUserId);
@@ -92,15 +92,15 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
     <div className="min-h-screen flex items-center justify-center bg-slate-100 dark:bg-slate-950 p-4 transition-colors duration-300">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md overflow-hidden transition-colors duration-300 flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="bg-blue-600 dark:bg-blue-900 p-6 text-center shrink-0">
+        <div className="bg-orange-600 dark:bg-orange-900 p-6 text-center shrink-0">
           <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
             <Factory size={28} className="text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-1">KDT 자재 재고관리</h1>
-          <div className="text-blue-100 text-sm flex items-center justify-center gap-2">
+          <div className="text-orange-100 text-sm flex items-center justify-center gap-2">
             <span>ZONE별 통합 수불 관리 시스템</span>
             <span
-              className="bg-blue-500/50 px-1.5 py-0.5 rounded text-[10px] border border-blue-400/50 cursor-help"
+              className="bg-orange-500/50 px-1.5 py-0.5 rounded text-[10px] border border-orange-400/50 cursor-help"
               title={`빌드 일시: ${BUILD_TIMESTAMP}`}
             >
               Ver{APP_VERSION}
@@ -122,7 +122,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
                   title="로그인할 계정을 선택하세요"
                   value={selectedIdx}
                   onChange={(e) => setSelectedIdx(Number(e.target.value))}
-                  className="w-full pl-10 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900 dark:text-white appearance-none transition-colors cursor-pointer text-sm"
+                  className="w-full pl-10 pr-10 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none text-slate-900 dark:text-white appearance-none transition-colors cursor-pointer text-sm"
                 >
                   {users.map((u, idx) => (
                     <option key={u.id} value={idx}>
@@ -147,7 +147,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
                     setPassword(e.target.value);
                     setError('');
                   }}
-                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900 dark:text-white transition-colors text-sm placeholder-slate-400 dark:placeholder-slate-500"
+                  className="w-full pl-10 pr-4 py-3 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none text-slate-900 dark:text-white transition-colors text-sm placeholder-slate-400 dark:placeholder-slate-500"
                   placeholder="비밀번호를 입력하세요"
                 />
               </div>
@@ -165,7 +165,7 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
                     }`}
                 >
                   <span>일반 모드</span>
-                  {!isDarkMode && <Check size={14} className="text-blue-600" />}
+                  {!isDarkMode && <Check size={14} className="text-orange-600" />}
                 </button>
                 <button
                   type="button"
@@ -176,14 +176,14 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
                     }`}
                 >
                   <span>다크 모드</span>
-                  {isDarkMode && <Check size={14} className="text-blue-300" />}
+                  {isDarkMode && <Check size={14} className="text-orange-300" />}
                 </button>
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mt-4"
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3.5 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 mt-4"
             >
               시스템 접속
             </button>
@@ -217,8 +217,8 @@ const Login: React.FC<LoginProps> = ({ users, onLogin, isDarkMode, toggleDarkMod
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full mx-4 border border-slate-100 dark:border-slate-700 text-center space-y-4">
             <div className="relative w-14 h-14 mx-auto flex items-center justify-center">
               <div className="absolute inset-0 rounded-full border-4 border-slate-100 dark:border-slate-700"></div>
-              <div className="absolute inset-0 rounded-full border-4 border-t-blue-600 dark:border-t-blue-400 animate-spin"></div>
-              <Factory size={20} className="text-blue-600 dark:text-blue-400 animate-pulse" />
+              <div className="absolute inset-0 rounded-full border-4 border-t-orange-600 dark:border-t-orange-400 animate-spin"></div>
+              <Factory size={20} className="text-orange-600 dark:text-orange-400 animate-pulse" />
             </div>
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">보안 세션 및 최신 버전 동기화</h3>

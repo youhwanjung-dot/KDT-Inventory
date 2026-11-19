@@ -79,6 +79,7 @@ export interface User {
   password: string;
   role: UserRole;
   txPermission?: TxPermission;  // ALL | IN_ONLY (입고전용) | OUT_ONLY (출고전용)
+  department?: string;
   email?: string;
 }
 

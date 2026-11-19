@@ -17,13 +17,15 @@ export const INITIAL_TRANSACTIONS: InventoryTransaction[] = initialTxData;
 
 // KDT Default Users (Q11 + C3 confirmed)
 export const INITIAL_USERS: User[] = [
-  { id: 'admin', name: '관리자',      password: '6922', role: 'admin', txPermission: 'ALL',      email: 'youhwanjung@gmail.com' },
-  { id: 'ksh',   name: '김수현 팀장', password: '1234', role: 'user',  txPermission: 'IN_ONLY'  },
-  { id: 'hhd',   name: '황호동 반장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY' },
-  { id: 'mjw',   name: '문자운 조장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY' },
-  { id: 'kmk',   name: '김민기 조장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY' },
-  { id: 'lhj',   name: '이호준 계장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY' },
+  { id: 'admin', name: '관리자',      password: '6922', role: 'admin', txPermission: 'ALL',      department: '제조팀', email: 'youhwanjung@gmail.com' },
+  { id: 'ksh',   name: '김수현 팀장', password: '1234', role: 'user',  txPermission: 'IN_ONLY',  department: '제조팀' },
+  { id: 'hhd',   name: '황호동 반장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY', department: '전공정' },
+  { id: 'mjw',   name: '문자운 조장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY', department: '후공정' },
+  { id: 'kmk',   name: '김민기 조장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY', department: '전공정' },
+  { id: 'lhj',   name: '이호준 계장', password: '1234', role: 'user',  txPermission: 'OUT_ONLY', department: '후공정' },
 ];
+
+export const USER_DEPARTMENTS = ['제조팀', '전공정', '후공정', '품질팀'] as const;
 
 export const FIELD_SETTINGS_KEY = 'kdt_field_settings_v1.0';
 export const EVENT_FIELD_SETTINGS_CHANGED = 'kdt_field_settings_changed';

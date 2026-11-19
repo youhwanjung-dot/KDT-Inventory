@@ -30,8 +30,16 @@ export const resolveMergedCells = (ws: any) => {
             for (let r = merge.s.r; r <= merge.e.r; r++) {
                 for (let c = merge.s.c; c <= merge.e.c; c++) {
                     const targetRef = utils.encode_cell({ c, r });
-                    // If the cell is empty/undefined, clone the start cell value
-                    if (!ws[targetRef]) {
+                    const targetCell = ws[targetRef];
+                    const isEmpty =
+                        !targetCell ||
+                        (targetCell.f === undefined &&
+                            (targetCell.v === undefined ||
+                                targetCell.v === null ||
+                                (typeof targetCell.v === 'string' && targetCell.v.trim() === '')));
+                    // SheetJS may materialize blank cells inside merged ranges; copy the
+                    // merged value into those cells so row-based imports retain the category.
+                    if (isEmpty) {
                         ws[targetRef] = { ...startCell };
                     }
                 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   X,
   Box,
@@ -434,7 +434,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
           <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
             <div>
               <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <Box size={20} className="text-indigo-500" />
+                <Box size={20} className="text-orange-500" />
                 ZONE(대분류) 및 기준정보 관리
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -459,7 +459,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                   }}
                   className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${
                     drillCategory === null && activeTabKey === tab.key
-                      ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                      ? 'border-orange-600 text-orange-600 dark:text-orange-400'
                       : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400'
                   }`}
                 >
@@ -474,7 +474,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                 onClick={() => setIsOrderMode(!isOrderMode)}
                 className={`mb-2 px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
                   isOrderMode
-                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    ? 'bg-orange-600 text-white border-orange-600'
                     : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700'
                 }`}
               >
@@ -496,7 +496,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                 >
                   <ChevronLeft size={14} /> ZONE 목록
                 </button>
-                <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{drillCategory}</span>
+                <span className="text-sm font-black text-orange-600 dark:text-orange-400">{drillCategory}</span>
                 <span className="text-xs text-slate-400">소속 품목 ({dataEntries.length}종)</span>
               </div>
             ) : (
@@ -517,7 +517,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                 />
                 <button
                   onClick={handleAddCategory}
-                  className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center gap-1"
+                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1"
                 >
                   <Plus size={15} /> ZONE 추가
                 </button>
@@ -536,7 +536,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                 />
                 <button
                   onClick={handleAddSubName}
-                  className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg flex items-center gap-1"
+                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1"
                 >
                   <Plus size={15} /> 품목 추가
                 </button>
@@ -559,7 +559,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                   onDrop={() => isOrderMode && handleDrop(val)}
                   className={`flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border transition-colors ${
                     draggingValue === val
-                      ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/40'
                       : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40'
                   }`}
                 >
@@ -573,12 +573,12 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                           value={tempValue}
                           onChange={(e) => setTempValue(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && requestUpdate(val, tempValue)}
-                          className="px-2.5 py-1 text-sm border border-blue-400 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white flex-1"
+                          className="px-2.5 py-1 text-sm border border-orange-400 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-white flex-1"
                           autoFocus
                         />
                         <button
                           onClick={() => requestUpdate(val, tempValue)}
-                          className="px-2.5 py-1 text-xs bg-blue-600 text-white rounded font-bold flex items-center gap-1"
+                          className="px-2.5 py-1 text-xs bg-orange-600 text-white rounded font-bold flex items-center gap-1"
                         >
                           <Save size={13} /> 적용
                         </button>
@@ -594,7 +594,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                         {effectiveTabKey === 'category' ? (
                           <button
                             onClick={() => setDrillCategory(val)}
-                            className="font-bold text-indigo-700 dark:text-indigo-400 hover:underline text-left flex items-center gap-1"
+                            className="font-bold text-orange-700 dark:text-orange-400 hover:underline text-left flex items-center gap-1"
                           >
                             {val}
                             <ArrowRight size={13} className="opacity-50" />
@@ -608,7 +608,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                         </span>
 
                         {zoneMeta?.plannedProductionQty ? (
-                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 flex items-center gap-1">
+                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-orange-50 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300 flex items-center gap-1">
                             <Factory size={11} /> {zoneMeta.plannedProductionQty.toLocaleString('ko-KR')}대
                           </span>
                         ) : null}
@@ -631,7 +631,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                       {effectiveTabKey === 'category' && zoneMeta && (
                         <button
                           onClick={() => setZoneMetaTarget({ name: val, meta: zoneMeta })}
-                          className="px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center gap-1"
+                          className="px-2.5 py-1 text-xs font-bold text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950/40 flex items-center gap-1"
                           title="ZONE 별칭 변경 / 고객사 / 목표 생산수량 설정"
                         >
                           <Sliders size={13} /> 별칭·설정
@@ -657,7 +657,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                           {moveTargets[val] && (
                             <button
                               onClick={() => requestMoveSubcategory(val, moveTargets[val])}
-                              className="px-2 py-1 text-xs bg-indigo-600 text-white rounded font-bold"
+                              className="px-2 py-1 text-xs bg-orange-600 text-white rounded font-bold"
                             >
                               이동
                             </button>
@@ -670,7 +670,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                           setEditingValue(val);
                           setTempValue(val);
                         }}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
+                        className="p-1.5 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded"
                         title="이름 수정"
                       >
                         <Edit2 size={15} />

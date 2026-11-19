@@ -1,7 +1,7 @@
 # Task — KDT-Inventory 개발 진행 현황
 
 > 기준 문서: [`KDT_작업계획서.md`](./KDT_작업계획서.md) / [`Blueprint.md`](./Blueprint.md)
-> 현재 버전: **Ver 1.3.2** (Phase 1 ~ Phase 4 전 과정 100% 완료 + Hotfix + 마이그레이션 정리 반영)
+> 현재 버전: **Ver 1.3.8** (월별 보고서 대분류별 40행/A3 세로 출력 · 클라우드 배포 대기)
 
 ## Phase 0: 기획 및 요구사항 확정 (완료)
 - [x] `Asan-Inventory_3400` 아키텍처·스키마·엑셀 구조 분석
@@ -54,3 +54,18 @@
 - [x] `sourceExporter.ts`를 KDT용 최소 내장 템플릿으로 교체하고 아산노블/미사용 컴포넌트 참조 제거
 - [x] `StepUpload.tsx`, `StepMapping.tsx`, `TransactionHistoryImport.tsx`, 보고서 하단 표기 등 UI 문구를 KDT 기준으로 정비
 - [x] `_Cloud_run_KDT.bat` 재실행으로 클린빌드 및 Firebase Functions/Hosting 재배포 확인 완료
+
+## Excel ZONE 동기화 및 월별 보고서 안정화 (완료 — Ver 1.3.8, 배포 대기)
+- [x] Excel 내보내기에서 기준정보에 등록된 모든 대분류를 동일한 이름의 데이터 시트로 생성하고 Main 요약 시트의 대분류도 고정 문자열로 기록
+- [x] 요약 시트와 `Main` 대분류의 이름 충돌 방지, 품목이 없는 ZONE도 40개 슬롯으로 내보내기
+- [x] Excel 품목 일괄등록 시 가져온 대분류/소분류를 서버 기준정보에 동기화
+- [x] 수불부 이력 일괄등록에서 데이터 시트 이름과 품목 대분류가 일치할 때만 매칭해 타 ZONE 오등록 방지
+- [x] Main 요약 시트가 KDT 입고 시트로 오인되지 않도록 날짜/수량 헤더 판별 추가
+- [x] 병합된 대분류명을 40개 행에 전파해 Excel 품목 일괄등록 시 각 행의 ZONE 유지
+- [x] `_user/KDT-Inventory-2026-20261119.xlsx` 32개 품목의 ZONE이 `ZONE16_Plus`/`ZONE18`로 파싱되는 것 확인
+- [x] 품목명이 없는 수불부 슬롯은 직전 품목명을 상속하지 않고, 템플릿의 날짜별 거래 샘플값도 빈 슬롯으로 복제되지 않도록 수정
+- [x] Main 및 ZONE별 내보내기 시트의 Excel 인쇄 배율을 40%로 고정
+- [x] `_user/KDT-Inventory-2026-20261119.xlsx` 검수: Main/ZONE 품목명 일치, 미사용 슬롯 48곳의 샘플 수량 제거 정정본 생성, 실제 슬롯 데이터 보존 및 모든 시트 40% 확인
+- [x] 월별 보고서의 한국 시간대 월 경계 보정, 대분류별 40행 고정 및 A3 세로 인쇄 규칙 적용
+- [x] 월별 보고서 미리보기/인쇄를 대분류당 40슬롯으로 구성하고 페이지 번호를 대분류별로 표시
+- [x] `npm run typecheck`, `npm run build` 통과; 클라우드 배포는 대기

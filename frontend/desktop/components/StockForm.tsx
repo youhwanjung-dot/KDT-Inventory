@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { X, Check, Layers, Trash2, SlidersHorizontal } from 'lucide-react';
 import { InventoryItem, MasterData } from '../types';
 import { formatStockWithUnit, roundToInt } from '../utils/formatters';
@@ -187,7 +187,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
           onChange={handleChange}
           list={`${listId}-datalist`}
           required={required}
-          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
+          className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors"
           placeholder={placeholder}
           autoComplete="off"
         />
@@ -229,7 +229,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
             {/* Plating & Spec */}
             <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200/70 dark:border-slate-800">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 mb-2">
-                <Layers size={14} className="text-blue-500" />
+                <Layers size={14} className="text-orange-500" />
                 자재 사양 (도금 · 규격)
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -253,7 +253,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
                   required
                   value={formData.currentStock}
                   onChange={handleChange}
-                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-lg font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-700 text-right focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-lg font-bold text-orange-600 dark:text-orange-400 bg-white dark:bg-slate-700 text-right focus:ring-2 focus:ring-orange-500 focus:outline-none"
                 />
               </div>
 
@@ -266,7 +266,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
                   name="unit"
                   value={formData.unit || 'EA'}
                   onChange={handleChange}
-                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
                 >
                   {uniqueUnits.map((u) => (
                     <option key={u} value={u}>
@@ -295,7 +295,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
             </div>
 
             {(formData.unit || 'EA').toUpperCase() !== 'EA' && Number(formData.eaPerUnit) > 1 && (
-              <div className="text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/30 px-3 py-1.5 rounded-lg border border-indigo-200/70 dark:border-indigo-900">
+              <div className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50/70 dark:bg-orange-950/30 px-3 py-1.5 rounded-lg border border-orange-200/70 dark:border-orange-900">
                 화면 표시 미리보기:{' '}
                 <strong>{formatStockWithUnit(Number(formData.currentStock) || 0, formData.unit, Number(formData.eaPerUnit))}</strong>
               </div>
@@ -326,7 +326,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
             {/* Phase 2 Pre-built BOM Fields */}
             <div className="bg-slate-50/80 dark:bg-slate-800/30 p-3 rounded-lg border border-dashed border-slate-300 dark:border-slate-700">
               <label className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5 mb-2">
-                <SlidersHorizontal size={13} className="text-indigo-500" />
+                <SlidersHorizontal size={13} className="text-orange-500" />
                 생산 연동 기준 (2차 BOM 스키마 선반영)
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -375,7 +375,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
                 onChange={handleChange}
                 rows={2}
                 placeholder="예: 4000x9pkg + 1000 = 37,000ea"
-                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors resize-none"
+                className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-colors resize-none"
               />
             </div>
           </form>
@@ -406,7 +406,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
             <button
               type="submit"
               form="stock-form"
-              className="px-6 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold flex items-center gap-2 text-sm transition-colors shadow-lg shadow-blue-500/20"
+              className="px-6 py-2.5 rounded-lg bg-orange-600 text-white hover:bg-orange-700 font-bold flex items-center gap-2 text-sm transition-colors shadow-lg shadow-orange-500/20"
             >
               <Check size={18} />
               저장

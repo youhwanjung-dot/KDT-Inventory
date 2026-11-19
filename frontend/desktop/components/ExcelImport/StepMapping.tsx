@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Edit3, RotateCcw, Check, X, ArrowRight } from 'lucide-react';
 import { FieldDef, FIELD_SETTINGS_KEY, DEFAULT_DB_FIELDS } from '../../constants';
 import { FieldMapping } from './utils';
@@ -51,10 +51,10 @@ const StepMapping: React.FC<StepMappingProps> = ({
 
     return (
         <div className="max-w-3xl mx-auto">
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg mb-6 flex items-start justify-between gap-3 border border-blue-100 dark:border-blue-800">
+            <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg mb-6 flex items-start justify-between gap-3 border border-orange-100 dark:border-orange-800">
                 <div className="flex gap-3">
-                    <Edit3 size={20} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                    <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <Edit3 size={20} className="text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                    <div className="text-sm text-orange-800 dark:text-orange-300">
                         <p className="font-bold mb-1">DB 필드 매핑 & 명칭 설정</p>
                         <p>
                             KDT 데이터 형식과 순서가 일치하도록 엑셀 헤더를 연결해주세요.<br />
@@ -88,7 +88,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
                                                 type="text"
                                                 value={tempLabel}
                                                 onChange={(e) => setTempLabel(e.target.value)}
-                                                className="w-full px-2 py-1 border border-blue-400 dark:border-blue-500 rounded focus:outline-none text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                                className="w-full px-2 py-1 border border-orange-400 dark:border-orange-500 rounded focus:outline-none text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                                                 autoFocus
                                                 title="필드 명칭 입력"
                                                 placeholder="명칭 입력"
@@ -97,7 +97,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
                                             <button onClick={cancelLabelEdit} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300" title="취소" aria-label="취소"><X size={16} /></button>
                                         </div>
                                     ) : (
-                                        <div className="flex items-center cursor-pointer hover:text-blue-600 dark:hover:text-blue-400" onClick={() => startEditingLabel(field)} title="클릭하여 명칭 수정">
+                                        <div className="flex items-center cursor-pointer hover:text-orange-600 dark:hover:text-orange-400" onClick={() => startEditingLabel(field)} title="클릭하여 명칭 수정">
                                             <span className="truncate">{field.label}</span>
                                             <Edit3 size={14} className="text-slate-300 dark:text-slate-500 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
                                             {field.required && <span className="text-red-500 ml-1 absolute right-2 top-3">*</span>}
@@ -106,7 +106,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
                                 </td>
                                 <td className="px-4 py-3">
                                     <select
-                                        className="w-full border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors"
+                                        className="w-full border border-slate-300 dark:border-slate-700 rounded px-2 py-1.5 focus:ring-2 focus:ring-orange-500 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors"
                                         value={mapping[field.key] || ''}
                                         onChange={(e) => handleMappingChange(field.key, e.target.value)}
                                         title={`${field.label} 매핑 선택`}
@@ -125,7 +125,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-                <button onClick={onNext} className="px-6 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg flex items-center gap-2">데이터 미리보기 <ArrowRight size={16} /></button>
+                <button onClick={onNext} className="px-6 py-2 bg-orange-600 text-white hover:bg-orange-700 rounded-lg flex items-center gap-2">데이터 미리보기 <ArrowRight size={16} /></button>
                 <button onClick={onBack} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">뒤로가기</button>
             </div>
             {showResetConfirm && (
