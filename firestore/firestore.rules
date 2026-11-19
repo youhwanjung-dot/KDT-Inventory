@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================
+    // KDT-Inventory Collection Rules
+    // ========================================
+
+    match /inventory/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if false; // Cloud Functions only
+    }
+
+    match /transactions/{txId} {
+      allow read: if true;
+      allow create, update, delete: if false; // Cloud Functions only
+    }
+
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if false; // Cloud Functions only
+    }
+
+    match /config/{doc} {
+      allow read: if false;
+      allow write: if false; // Cloud Functions Admin SDK only
+    }
+
+    match /sessions/{doc} {
+      allow read, write: if false; // Cloud Functions Admin SDK only
+    }
+
+    match /metadata/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /masterData/{doc} {
+      allow read: if true;
+      allow write: if false; // Cloud Functions only
+    }
+  }
+}

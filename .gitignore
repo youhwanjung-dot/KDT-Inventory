@@ -1,0 +1,16 @@
+node_modules
+dist/
+.vite/
+functions/lib/
+functions/.tsbuildinfo
+*.log
+.env
+.env.local
+__pycache__/
+*.pyc
+uploads/
+_build_log.txt
+_build_test.txt
+.firebase/
+backup/
+

@@ -1,0 +1,160 @@
+{
+  "functions": {
+    "source": "functions"
+  },
+  "firestore": {
+    "rules": "firestore/firestore.rules",
+    "indexes": "firestore/firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/masterData",
+        "function": {
+          "functionId": "masterData",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/inventory",
+        "function": {
+          "functionId": "inventory",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/inventory/**",
+        "function": {
+          "functionId": "inventory",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/transactions",
+        "function": {
+          "functionId": "transactions",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/transaction",
+        "function": {
+          "functionId": "transactions",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/transaction/**",
+        "function": {
+          "functionId": "transactions",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/migration",
+        "function": {
+          "functionId": "migration",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/users",
+        "function": {
+          "functionId": "users",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/users/**",
+        "function": {
+          "functionId": "users",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/auth/login",
+        "function": {
+          "functionId": "login",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/auth/check",
+        "function": {
+          "functionId": "login",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/auth/logout",
+        "function": {
+          "functionId": "login",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/desktop/**",
+        "destination": "/desktop/index.html"
+      },
+      {
+        "source": "**",
+        "destination": "/desktop/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Pragma",        "value": "no-cache" },
+          { "key": "Expires",       "value": "0" }
+        ]
+      },
+      {
+        "source": "/desktop/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Pragma",        "value": "no-cache" },
+          { "key": "Expires",       "value": "0" }
+        ]
+      },
+      {
+        "source": "/",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+          { "key": "Pragma",        "value": "no-cache" },
+          { "key": "Expires",       "value": "0" }
+        ]
+      },
+      {
+        "source": "**/*.xlsx",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      }
+    ]
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    }
+  }
+}

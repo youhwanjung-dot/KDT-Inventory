@@ -1,0 +1,199 @@
+import { InventoryItem, InventoryTransaction, MasterData, User } from '../types';
+import { INITIAL_USERS, MOCKUP_MODE, STORAGE_MODE } from '../constants';
+
+const API_BASE_URL = window.location.port === '5173'
+  ? `http://${window.location.hostname}:3500/api`
+  : '/api';
+
+async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    ...options,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export const api = {
+  // Inventory
+  getInventory: async (): Promise<InventoryItem[]> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return [];
+    }
+    return fetchAPI<InventoryItem[]>('/inventory');
+  },
+  saveItem: async (item: InventoryItem) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', id: item.id || `INV-${Date.now()}` };
+    }
+    return fetchAPI<{ message: string; id: string }>('/inventory', {
+      method: 'POST',
+      body: JSON.stringify(item),
+    });
+  },
+  deleteItem: async (id: string) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)' };
+    }
+    return fetchAPI<{ message: string }>(`/inventory/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Transactions
+  getTransactions: async (): Promise<InventoryTransaction[]> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return [];
+    }
+    return fetchAPI<InventoryTransaction[]>('/transactions');
+  },
+  saveTransaction: async (tx: any) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', currentStock: Number(tx.currentStockSnapshot) || 0 };
+    }
+    return fetchAPI<{ message: string; currentStock: number }>('/transaction', {
+      method: 'POST',
+      body: JSON.stringify(tx),
+    });
+  },
+  updateTransaction: async (id: string, tx: any) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)' };
+    }
+    return fetchAPI<{ message: string }>(`/transaction/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(tx),
+    });
+  },
+  deleteTransaction: async (id: string) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)' };
+    }
+    return fetchAPI<{ message: string }>(`/transaction/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Users
+  getUsers: async (): Promise<User[]> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return INITIAL_USERS;
+    }
+    try {
+      return await fetchAPI<User[]>('/users');
+    } catch {
+      return INITIAL_USERS;
+    }
+  },
+  createUser: async (user: User) => {
+    return fetchAPI<{ message: string }>('/users', {
+      method: 'POST',
+      body: JSON.stringify(user),
+    });
+  },
+  updateUsers: async (users: User[]) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', count: users.length };
+    }
+    return fetchAPI<{ message: string; count: number }>('/users', {
+      method: 'POST',
+      body: JSON.stringify({ users }),
+    });
+  },
+
+  // Migration
+  migrateData: async (data: {
+    inventory: InventoryItem[];
+    transactions: InventoryTransaction[];
+    masterData?: MasterData;
+  }) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)' };
+    }
+    return fetchAPI<{ message: string }>('/migration', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Auth
+  login: async (credentials: any) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      const user = INITIAL_USERS.find((u) => u.id === credentials.userId);
+      if (!user || String(user.password) !== String(credentials.password)) {
+        throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
+      }
+      return { message: 'ok', token: `local-${Date.now()}`, user };
+    }
+    try {
+      return await fetchAPI<{ message: string; token: string; user: User }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
+    } catch {
+      const user = INITIAL_USERS.find((u) => u.id === credentials.userId);
+      if (!user || String(user.password) !== String(credentials.password)) {
+        throw new Error('로그인에 실패했습니다. (아이디/비밀번호 또는 서버 연결 확인)');
+      }
+      return { message: 'ok', token: `local-${Date.now()}`, user };
+    }
+  },
+  checkSession: async (sessionData: any) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') return { valid: true };
+    try {
+      return await fetchAPI<{ valid: boolean; reason?: string }>('/auth/check', {
+        method: 'POST',
+        body: JSON.stringify(sessionData),
+      });
+    } catch {
+      return { valid: true };
+    }
+  },
+  logout: async (sessionData: any) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') return { message: 'ok' };
+    try {
+      return await fetchAPI<{ message: string }>('/auth/logout', {
+        method: 'POST',
+        body: JSON.stringify(sessionData),
+      });
+    } catch {
+      return { message: 'ok' };
+    }
+  },
+
+  // Master Data (ZONE)
+  getMasterData: async (): Promise<MasterData> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { categories: [], namesByCategory: {}, nameOrder: [], zoneMeta: {} };
+    }
+    try {
+      const res = await fetch('/masterData');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch {
+      return { categories: [], namesByCategory: {}, nameOrder: [], zoneMeta: {} };
+    }
+  },
+  saveMasterData: async (data: MasterData): Promise<{ message: string }> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)' };
+    }
+    const res = await fetch('/masterData', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  },
+};

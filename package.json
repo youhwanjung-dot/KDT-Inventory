@@ -1,0 +1,51 @@
+{
+  "name": "kdt-inventory-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "KDT 자재 재고관리 시스템 - Desktop 버전",
+  "scripts": {
+    "local": "_Local_run_KDT.bat",
+    "cloud": "_Cloud_run_KDT.bat",
+    "dev": "vite --host --port 3500",
+    "build": "vite build",
+    "preview": "vite preview --host --port 3500",
+    "lint": "eslint \"frontend/**/*.{js,jsx,ts,tsx}\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@types/qrcode": "^1.5.6",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
+    "firebase": "^12.10.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^0.344.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "react-to-print": "^3.3.0",
+    "recharts": "^2.12.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "@types/file-saver": "^2.0.7",
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.38",
+    "eslint": "^9.39.3",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.3.0",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.56.0",
+    "vite": "^5.2.0"
+  }
+}
