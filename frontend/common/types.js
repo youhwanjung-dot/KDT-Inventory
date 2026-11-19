@@ -1,5 +1,5 @@
 /**
- * @file Common type definitions for Asan Noble Inventory System
+ * @file Common type definitions for KDT Inventory System
  * @description TypeScript types converted to JSDoc for JavaScript
  */
 

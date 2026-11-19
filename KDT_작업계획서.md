@@ -5,7 +5,7 @@
 > 기준 프로젝트: `D:\M_PROJECT\Asan-Inventory_3400` (Ver 5.34.0, 읽기 전용 참조)
 > 대상 프로젝트: `D:\M_PROJECT\KDT-Inventory_3500`
 > Firebase Project: `kdt-inventory` (#932423332610) / 리전: `asia-northeast3` (서울) / Blaze 요금제
-> GitHub: `https://github.com/youhwanjung-dot/KDT-Inventory.git` (예정)
+> GitHub: `https://github.com/youhwanjung-dot/KDT-Inventory.git`
 > 질의응답 채널: [`_user/QmA.md`](./_user/QmA.md)
 
 ---
@@ -137,11 +137,11 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | Hosting URL | asannoble-inventory.web.app | `https://kdt-inventory.web.app/login` |
 | 로컬 포트 | 3400 / 3410 | **`3500`** (단일 포트) |
 | 빌드 스크립트 | `_Local_run_inventory.bat` / `_Cloud_run_inventory.bat` | **`_Local_run_KDT.bat`** / **`_Cloud_run_KDT.bat`** (영문 ASCII 표준) |
-| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.1.0`**) |
+| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.3.2`**) |
 
 | MODE Flag (`Version.json`) | 초기값 | 비고 |
 |---|---|---|
-| `VERSION_MODE` | `1.1.0` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.3.2` | 하드코딩 금지, `Version.json` → Vite 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | ON → OFF | 초기 GUI 검증용 목업 분기 유지 (삭제 금지) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore + 로컬 분기 코드 보존 (캐시 금지) |
 
@@ -149,7 +149,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 
 ## 7. 단계별 추진 일정 및 실시간 모니터링 (Master Roadmap)
 
-> **실시간 상태**: **Phase 1 ~ Phase 4 (`Ver 1.3.1`) 전 과정 100% 구축 및 클라우드 배포·Hotfix 완료·운영 DB 32품목/33건 적재 완료!** (최종 갱신: `2026-11-19 16:25` / 버전: `Ver 1.3.1`)
+> **실시간 상태**: **Phase 1 ~ Phase 4 (`Ver 1.3.2`) 전 과정 100% 구축 및 클라우드 배포·Hotfix·마이그레이션 정리 완료·운영 DB 32품목/33건 적재 완료!** (최종 갱신: `2026-11-19 17:03` / 버전: `Ver 1.3.2`)
 > **운영 접속 URL**: **`https://kdt-inventory.web.app/login`** (서울 리전 `asia-northeast3` Cloud Functions v2 + Firestore 실시간 연동 완료)
 
 | 단계 | 세부 작업 | 상태 | 반영 버전 |
@@ -160,9 +160,10 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | **Phase 3** | **초기 32품목/33건 데이터 시드 & 입고시트 전용 파서 & 대시보드**: `_user/KDT-Inventory.xlsx` 32품목/33건(`ZONE16_Plus` 10품목, `ZONE18` 22품목, 평와셔 M8 46,100 EA 통합) `initialData.ts`·`initialTransactions.ts` 및 원클릭 초기 적재 기능 탑재, `LegacyParser.ts` 입고시트(`육각볼트 SET`+`ㅁ` 구성품 분리) 직접 임포트 지원, 대시보드 정수 EA 최적화 | **완료** | Ver 1.2.0 |
 | **Phase 4** | **배포 및 실접속 검증**: 클린빌드 검증 → `backup/Ver1.2.0` → Firebase(`kdt-inventory`, 서울 리전 `asia-northeast3`) 배포 → 운영 DB 초기 32품목/33건/6명 사용자/`zoneMeta` 시드 적재 → `https://kdt-inventory.web.app/login` 실접속 및 API 200 OK 검증 완료 | **완료 (100%)** | Ver 1.3.0 |
 | **Hotfix** | **빌드 에러 해결 및 호환 심볼 추가**: `StepPreview.tsx`와 `formatters.ts`의 `formatStockWithRef` 누락 심볼 수정, `functions/src` 엄격 타입 검사 수정, Vite 클린 빌드(0 에러) 검증 후 Hosting 재배포 완료 | **완료 (100%)** | Ver 1.3.1 |
+| **Cleanup** | **마이그레이션 마무리 정리 및 운영 품질 정비**: 프론트엔드 `typecheck` 오류 수정, 로컬 Tailwind 빌드 복구(`tailwind.config.cjs`, `postcss.config.cjs`), 매뉴얼/내장 템플릿 및 엑셀 Import UI의 아산노블·요양원 잔재 제거, 클린빌드 및 Hosting 재배포 완료 | **완료 (100%)** | Ver 1.3.2 |
 | **2차 과제** | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 (DB 스키마 선반영 완료) | 예정 | Ver 2.0.0 |
 
-### ▶ Phase 4 (`Ver 1.3.0` ~ `Ver 1.3.1`) 세부 진행 로그 (실시간 갱신)
+### ▶ Phase 4 (`Ver 1.3.0` ~ `Ver 1.3.2`) 세부 진행 로그 (실시간 갱신)
 - [x] `4-1` 프론트엔드 및 백엔드(`functions/lib`, Node.js 22 2nd Gen, Lazy Admin SDK) 클린빌드 0에러 검증 완료
 - [x] `4-2` `backup/Ver1.2.0` 롤백 아카이브 생성 및 GitHub 커밋/푸시 완료
 - [x] `4-3` Firebase(`kdt-inventory`, 서울 리전 `asia-northeast3`) Firestore Rules/Indexes, Cloud Functions v2 (8개 전체 함수), Hosting(`https://kdt-inventory.web.app`) 배포 완료
@@ -170,6 +171,8 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 - [x] `4-5` `formatStockWithRef` export 누락 및 functions 타입 에러 긴급 패치(Hotfix) 완료
 - [x] `4-6` Vite 클린 빌드 0에러 확인, Firebase Hosting 배포 완료, 라이브 웹앱 정상 로드 및 8개 API 엔드포인트 200 OK 검증 완료
 - [x] `4-7` `Ver 1.3.1` 최종 버전 갱신, 로컬(`3500`) 및 클라우드(`https://kdt-inventory.web.app/login`) 정상 가동 완료
-
+- [x] `4-8` `LegacyParser.ts`, `excelExport.ts` 프론트엔드 `typecheck` 오류 수정 및 프로덕션 `tailwind CDN` 제거 후 로컬 Tailwind 빌드 체계 복구 완료
+- [x] `4-9` `ManualModal/*`, `sourceExporter.ts`, 엑셀 업로드/매핑/수불부 UI 문구를 KDT 기준으로 정리하여 아산노블·요양원 잔재 제거 완료
+- [x] `4-10` `_Cloud_run_KDT.bat` 재실행으로 `Ver 1.3.2` 클린빌드 및 Firebase Functions/Hosting 재배포 완료
 
 

@@ -57,7 +57,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
                     <div className="text-sm text-blue-800 dark:text-blue-300">
                         <p className="font-bold mb-1">DB 필드 매핑 & 명칭 설정</p>
                         <p>
-                            요양원 데이터 형식과 순서가 일치하도록 엑셀 헤더를 연결해주세요.<br />
+                            KDT 데이터 형식과 순서가 일치하도록 엑셀 헤더를 연결해주세요.<br />
                             DB 필드명을 클릭하여 원하는 명칭(예: 거래처 → 사용부서)으로 영구 수정할 수 있습니다.
                         </p>
                     </div>
@@ -74,7 +74,7 @@ const StepMapping: React.FC<StepMappingProps> = ({
                 <table className="w-full text-sm">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                         <tr>
-                            <th className="px-4 py-3 text-left w-1/3">요양원 DB 필드 (클릭하여 수정)</th>
+                            <th className="px-4 py-3 text-left w-1/3">KDT DB 필드 (클릭하여 수정)</th>
                             <th className="px-4 py-3 text-left w-2/3">엑셀 파일 열 (Header)</th>
                         </tr>
                     </thead>

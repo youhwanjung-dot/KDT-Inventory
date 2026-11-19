@@ -606,7 +606,7 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                   </div>
                   <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">엑셀 파일 업로드</h3>
                   <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm text-center">
-                     요양원 수불부 통합 파일(.xlsx)을 선택하세요.<br />
+                     KDT 수불부 통합 파일(.xlsx)을 선택하세요.<br />
                      모든 시트를 순회하며 날짜 및 입출고 데이터를 추출합니다.
                   </p>
                </div>

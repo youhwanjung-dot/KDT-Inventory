@@ -17,8 +17,8 @@ const ManualModal: React.FC<ManualModalProps> = ({ user, onClose }) => {
     const handlePrint = useReactToPrint({
         contentRef: contentRef,
         documentTitle: isAdmin
-            ? `아산노블_시스템_관리자매뉴얼_v${APP_VERSION}`
-            : `아산노블_시스템_사용자매뉴얼_v${APP_VERSION}`,
+            ? `KDT_시스템_관리자매뉴얼_v${APP_VERSION}`
+            : `KDT_시스템_사용자매뉴얼_v${APP_VERSION}`,
         pageStyle: `
             @page {
                 size: A4 portrait;
@@ -41,7 +41,7 @@ const ManualModal: React.FC<ManualModalProps> = ({ user, onClose }) => {
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-200">
                         <BookOpen size={16} className="text-emerald-500" />
                         <span>
-                            {isAdmin ? '시스템 매뉴얼 (관리자용 - 전체 9페이지)' : '시스템 매뉴얼 (일반 사용자용 - 전체 6페이지)'}
+                            {isAdmin ? '시스템 매뉴얼 (관리자용 - 전체 5페이지)' : '시스템 매뉴얼 (일반 사용자용 - 전체 4페이지)'}
                         </span>
                     </div>
                 </div>

@@ -23,7 +23,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ onFileUpload }) => {
             </div>
             <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">엑셀 파일 업로드</h3>
             <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm text-center">
-                일반 목록형 또는 <strong>요양원 기존 재고양식</strong>을 지원합니다.<br />
+                일반 목록형 또는 <strong>KDT 기존 재고양식</strong>을 지원합니다.<br />
                 (잔량 열이 [수량]과 [단위]로 분리되어 있어도 자동으로 인식합니다)
             </p>
         </div>

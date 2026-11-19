@@ -1,7 +1,7 @@
 # Task — KDT-Inventory 개발 진행 현황
 
 > 기준 문서: [`KDT_작업계획서.md`](./KDT_작업계획서.md) / [`Blueprint.md`](./Blueprint.md)
-> 현재 버전: **Ver 1.3.1** (Phase 1 ~ Phase 4 전 과정 100% 완료 + Hotfix 반영)
+> 현재 버전: **Ver 1.3.2** (Phase 1 ~ Phase 4 전 과정 100% 완료 + Hotfix + 마이그레이션 정리 반영)
 
 ## Phase 0: 기획 및 요구사항 확정 (완료)
 - [x] `Asan-Inventory_3400` 아키텍처·스키마·엑셀 구조 분석
@@ -46,3 +46,11 @@
 - [x] 프론트엔드 Vite 클린 빌드(0 에러) 및 Functions 컴파일(0 에러) 통과
 - [x] Firebase Hosting 정식 재배포 완료 (`https://kdt-inventory.web.app/login`)
 - [x] 라이브 Hosting 에셋 7종 200 OK 및 Cloud Functions 8개 엔드포인트 200 OK 검증 완료
+
+## Phase 4 Cleanup: 마이그레이션 마무리 정리 및 운영 품질 정비 (완료 — Ver 1.3.2)
+- [x] `LegacyParser.ts`, `InventoryList/excelExport.ts` 프론트엔드 `typecheck` 오류 수정
+- [x] `tailwind.config.cjs`, `postcss.config.cjs` 추가 및 `frontend/desktop/index.html`의 프로덕션 `tailwind CDN` 제거
+- [x] `ManualModal/UserManual.tsx`, `ManualModal/index.tsx`, `ManualModal/SharedComponents.tsx`를 KDT 기준 매뉴얼로 정리
+- [x] `sourceExporter.ts`를 KDT용 최소 내장 템플릿으로 교체하고 아산노블/미사용 컴포넌트 참조 제거
+- [x] `StepUpload.tsx`, `StepMapping.tsx`, `TransactionHistoryImport.tsx`, 보고서 하단 표기 등 UI 문구를 KDT 기준으로 정비
+- [x] `_Cloud_run_KDT.bat` 재실행으로 클린빌드 및 Firebase Functions/Hosting 재배포 확인 완료

@@ -5,7 +5,7 @@ export const ManualPage: React.FC<{ pageNumber: number, totalPages: number, chil
     <div className={`report-page print-page w-[210mm] max-w-[210mm] h-[297mm] max-h-[297mm] bg-white text-slate-800 shadow-md px-8 py-6 flex flex-col justify-between relative box-border overflow-hidden ${pageNumber === totalPages ? 'break-after-avoid' : 'break-after-page'}`}>
         <div className="flex-1 flex flex-col justify-start space-y-3 overflow-hidden min-h-0">{children}</div>
         <footer className="mt-4 pt-2.5 border-t border-slate-200 text-center text-[9.5px] text-slate-400 shrink-0 h-9 flex flex-col justify-center">
-            <p>아산노블요양원 통합 재고관리 시스템 Ver {APP_VERSION} &copy; 2026</p>
+            <p>KDT 자재 재고관리 시스템 Ver {APP_VERSION} &copy; 2026</p>
             <p className="font-bold mt-0.5">Page {pageNumber} / {totalPages}</p>
         </footer>
     </div>

@@ -432,7 +432,8 @@ export async function exportInventoryToExcel({
     cell.value = value;
     cell.font = { bold: true, size: 9 };
     cell.alignment = { horizontal: 'center', vertical: 'middle' };
-    if (refStyles[Math.min(col, 9)]?.border) cell.border = refStyles[Math.min(col, 9)].border;
+    const headerBorder = refStyles[Math.min(col, 9)]?.border;
+    if (headerBorder) cell.border = headerBorder as Partial<ExcelJS.Borders>;
     mainSheet.getColumn(col).width = width;
   });
 
@@ -494,7 +495,7 @@ export async function exportInventoryToExcel({
     catCell.value = { formula: `'${cat}'!A2`, result: cat };
     catCell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     if (refStyles[3]?.font) catCell.font = refStyles[3].font;
-    if (refStyles[3]?.border) catCell.border = refStyles[3].border;
+    if (refStyles[3]?.border) catCell.border = refStyles[3].border as Partial<ExcelJS.Borders>;
   });
 
   const templateEndRow = mainSheet.rowCount || 1;

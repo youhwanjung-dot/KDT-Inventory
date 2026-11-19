@@ -123,8 +123,9 @@ export const processKdtInboundSheet = (
                 });
             } else {
                 existing.currentStock = Math.round((existing.currentStock || 0) + realQty);
-                if (note && !existing.note.includes(note)) {
-                    existing.note = [existing.note, note].filter(Boolean).join(' / ');
+                const existingNote = existing.note ?? '';
+                if (note && !existingNote.includes(note)) {
+                    existing.note = [existingNote, note].filter(Boolean).join(' / ');
                 }
                 if (date > existing.lastUpdated) {
                     existing.lastUpdated = date;

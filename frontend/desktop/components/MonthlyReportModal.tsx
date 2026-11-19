@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { X, Calendar, Printer, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, InventoryTransaction, MasterData } from '../types';
@@ -347,7 +347,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
 
               {/* Footer */}
               <div className="mt-0 pt-2 border-t border-slate-300 text-[9px] text-slate-500 flex justify-between items-center">
-                <span>System: Asan Noble Inventory Manager</span>
+                <span>System: KDT Inventory Manager</span>
                 <span className="font-bold">KDT</span>
               </div>
             </div>
