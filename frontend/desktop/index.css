@@ -34,10 +34,10 @@ body {
   animation: fade-in 0.3s ease-out forwards;
 }
 
-/* Print-specific styles for A4 Reporting (react-to-print & window.print optimized) */
+/* Shared report print layout: A3 portrait */
 @media print {
   @page {
-    size: A4 portrait;
+    size: A3 portrait;
     margin: 10mm;
   }
 
@@ -53,13 +53,13 @@ body {
     display: none !important;
   }
 
-  /* User Guide: Report container fixed width 100% (210mm) */
+  /* Fit every report page inside the printable A3 portrait area. */
   .print-page {
     position: relative !important;
-    width: 100% !important;
-    max-width: 190mm !important;
-    height: 275mm !important;
-    max-height: 275mm !important;
+    width: 277mm !important;
+    max-width: 277mm !important;
+    height: 400mm !important;
+    max-height: 400mm !important;
     margin: 0 auto !important;
     padding: 0 !important;
     box-shadow: none !important;
@@ -102,23 +102,23 @@ body {
 /* ============================================================
    print-prep-mode: 인쇄 직전 0.6초 팝아웃 오버레이 (Asan_요구사양서.md)
    window.print() 호출 전, @media print 진입 전 구간에서
-   레이아웃이 A4 사이즈로 미리 세팅되도록 강제합니다.
+   레이아웃이 A3 세로 사이즈로 미리 세팅되도록 강제합니다.
    ============================================================ */
 
-/* 보고서 컨테이너 전체를 A4 가로 기준 픽셀로 팝아웃 */
+/* 보고서 컨테이너 전체를 A3 세로 인쇄 가능 폭으로 팝아웃 */
 .print-prep-mode {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  width: 1046px !important;     /* A4 portrait 가용 픽셀 기준 (190mm ≈ 1046px @141dpi) */
-  min-width: 1046px !important;
-  max-width: 1046px !important;
+  width: 277mm !important;
+  min-width: 277mm !important;
+  max-width: 277mm !important;
   background: white !important;
   padding: 10px !important;
   z-index: 9998 !important;     /* Loading Overlay(9999) 직하단 */
 }
 
-/* @media print 에 선언된 Flex 레이아웃 분할 룰을 prep-mode 에도 복제 */
+/* Preserve chart columns while preparing A3 portrait reports for print. */
 .print-prep-mode .charts-row {
   display: flex !important;
   flex-direction: row !important;
@@ -130,7 +130,7 @@ body {
 /* Flex 자식 요소의 내부 SVG/Canvas 크기로 인한 수축 거부 버그 방지 */
 .print-prep-mode .chart-card {
   width: 48% !important;
-  max-width: 502px !important;
+  max-width: 740px !important;
   min-width: 0 !important;      /* 핵심: Flex 수축 거부 버그 차단 */
   box-sizing: border-box !important;
 }

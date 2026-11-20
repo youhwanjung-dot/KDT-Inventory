@@ -24,31 +24,71 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
   }
 
   const db = admin.firestore();
-  const { inventory, transactions, masterData: incomingMasterData } = req.body;
+  const {
+    inventory,
+    transactions = [],
+    masterData: incomingMasterData,
+  } = req.body;
 
-  if (!Array.isArray(inventory)) {
-    res.status(400).json({ error: 'inventory array is required' });
+  if (!Array.isArray(inventory) || !Array.isArray(transactions)) {
+    res.status(400).json({ error: 'inventory and transactions arrays are required' });
     return;
   }
 
   try {
-    // Step 1: Delete existing inventory and transactions safely in chunks
+    const inventoryIds = new Set<string>();
+    for (const item of inventory) {
+      const itemId = String(item?.id || '').trim();
+      if (!itemId || inventoryIds.has(itemId)) {
+        res.status(400).json({ error: `Missing or duplicate inventory ID: ${itemId || '(empty)'}` });
+        return;
+      }
+      if (!Number.isFinite(Number(item.currentStock))) {
+        res.status(400).json({ error: `Invalid currentStock for inventory ${itemId}` });
+        return;
+      }
+      inventoryIds.add(itemId);
+    }
+
+    const transactionIds = new Set<string>();
+    for (const tx of transactions) {
+      const txId = String(tx?.id || '').trim();
+      const itemId = String(tx?.itemId || '').trim();
+      if (!txId || transactionIds.has(txId)) {
+        res.status(400).json({ error: `Missing or duplicate transaction ID: ${txId || '(empty)'}` });
+        return;
+      }
+      if (!inventoryIds.has(itemId)) {
+        res.status(400).json({ error: `Transaction ${txId} references missing inventory ${itemId || '(empty)'}` });
+        return;
+      }
+      if (!Number.isFinite(Number(tx.quantity))) {
+        res.status(400).json({ error: `Invalid quantity for transaction ${txId}` });
+        return;
+      }
+      transactionIds.add(txId);
+    }
+
+    if (
+      incomingMasterData !== undefined &&
+      (!incomingMasterData || !Array.isArray(incomingMasterData.categories))
+    ) {
+      res.status(400).json({ error: 'masterData.categories must be an array' });
+      return;
+    }
+
+    // Keep old documents until all replacement documents have been written.
     const invSnapshot = await db.collection('inventory').get();
     const txSnapshot = await db.collection('transactions').get();
-    await deleteDocsInChunks(db, invSnapshot.docs);
-    await deleteDocsInChunks(db, txSnapshot.docs);
 
-    logger.info(`Deleted ${invSnapshot.size} inventory + ${txSnapshot.size} transactions`);
-
-    // Step 2: Write inventory + optional masterData (including zoneMeta)
+    // Write inventory, transactions, and optional masterData (including zoneMeta).
     const BATCH_LIMIT = 400;
     let writeBatch = db.batch();
     let batchCount = 0;
 
     if (
       incomingMasterData &&
-      Array.isArray(incomingMasterData.categories) &&
-      incomingMasterData.categories.length > 0
+      Array.isArray(incomingMasterData.categories)
     ) {
       const masterDataRef = db.collection('masterData').doc('custom');
       writeBatch.set(
@@ -57,10 +97,9 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
           categories: incomingMasterData.categories,
           namesByCategory: incomingMasterData.namesByCategory ?? {},
           nameOrder: incomingMasterData.nameOrder ?? [],
-          ...(incomingMasterData.zoneMeta ? { zoneMeta: incomingMasterData.zoneMeta } : {}),
+          zoneMeta: incomingMasterData.zoneMeta ?? {},
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
+        }
       );
       batchCount++;
     }
@@ -93,7 +132,7 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
 
     if (Array.isArray(transactions)) {
       for (const tx of transactions) {
-        const txId = tx.id || `TX-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const txId = tx.id;
         const ref = db.collection('transactions').doc(txId);
         writeBatch.set(ref, {
           ...tx,
@@ -116,9 +155,17 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
       await writeBatch.commit();
     }
 
-    const txCount = Array.isArray(transactions) ? transactions.length : 0;
-    logger.info(`KDT migration complete: ${inventory.length} inventory, ${txCount} transactions`);
-    res.json({ message: 'ok', inventoryCount: inventory.length, transactionCount: txCount });
+    await deleteDocsInChunks(
+      db,
+      invSnapshot.docs.filter((doc: any) => !inventoryIds.has(doc.id))
+    );
+    await deleteDocsInChunks(
+      db,
+      txSnapshot.docs.filter((doc: any) => !transactionIds.has(doc.id))
+    );
+
+    logger.info(`KDT migration complete: ${inventory.length} inventory, ${transactions.length} transactions`);
+    res.json({ message: 'ok', inventoryCount: inventory.length, transactionCount: transactions.length });
   } catch (error) {
     logger.error('Migration error', error);
     res.status(500).json({ error: 'Migration failed' });

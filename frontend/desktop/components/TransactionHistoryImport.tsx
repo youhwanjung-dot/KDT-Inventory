@@ -6,7 +6,7 @@ import { ActionLogger } from '../utils/logger';
 import ConfirmationModal from './ConfirmationModal';
 
 interface TransactionHistoryImportProps {
-   onImport: (transactions: InventoryTransaction[]) => void;
+   onImport: (transactions: InventoryTransaction[], itemsToRegister: InventoryItem[], applyAcrossZones: boolean) => void;
    onCancel: () => void;
    inventory: InventoryItem[];
 }
@@ -37,6 +37,8 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
    } | null>(null);
 
    const [previewData, setPreviewData] = useState<InventoryTransaction[]>([]);
+   const [itemsToRegister, setItemsToRegister] = useState<InventoryItem[]>([]);
+   const [applyAcrossZones, setApplyAcrossZones] = useState(false);
    const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode; isDangerous?: boolean } | null>(null);
    const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,6 +82,8 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
     * Process ALL Sheets Sequentially (Ver 3.1.1 Logic Restored + English/Debug/Safety)
     */
    const processAllSheetsMatrix = async (wb: any, options?: { setState?: boolean }) => {
+      setItemsToRegister([]);
+      setApplyAcrossZones(false);
       try {
          const sheetNames = wb.SheetNames;
          const totalSheets = sheetNames.length;
@@ -97,6 +101,9 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
          const carryOverFixes: Array<{ sheet: string; itemName: string; before: number; expected: number; inQty: number; outQty: number; balanceQty: number }> = [];
          const carryOverMissingJan1: Array<{ sheet: string; itemName: string; carryQty: number }> = [];
          let processedSheetCount = 0; // [FIXIED] Variable restored
+         const itemsToRegisterByKey = new Map<string, InventoryItem>();
+         const discoveredItemsByZoneKey = new Map<string, InventoryItem>();
+         let generatedItemCount = 0;
 
          const debugLogs: string[] = []; // [DEBUG]
 
@@ -105,6 +112,8 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
             const parts = [it.plating?.trim(), it.spec?.trim()].filter(Boolean);
             return parts.length > 0 ? `${it.name} [${parts.join('/')}]` : it.name;
          };
+         const buildItemKey = (it: InventoryItem) =>
+            [it.name, it.plating, it.spec].map(value => normalizeStr(value || '').toLocaleLowerCase()).join('|');
          const inventoryMap = new Map<string, InventoryItem[]>();
          const pushToMap = (rawKey: string, it: InventoryItem) => {
             const k = normalizeStr(rawKey);
@@ -207,10 +216,37 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                      const normalizedExcelItemName = normalizeStr(excelName);
                      const dbItems = inventoryMap.get(normalizedExcelItemName);
                      if (!dbItems || dbItems.length === 0) return null;
-                     // The ledger tab name is the ZONE key; never fall back to another ZONE's duplicate item.
-                     return dbItems.find(item =>
+                     const zoneItem = dbItems.find(item =>
                         normalizeStr(item.category).toLocaleLowerCase() === normalizedSheetName
-                     ) || null;
+                     );
+                     if (zoneItem) return zoneItem;
+
+                     // Reuse another ZONE's item definition when this ledger ZONE lacks the item.
+                     const sourceItem = dbItems[0];
+                     const zoneItemKey = `${normalizedSheetName}|${buildItemKey(sourceItem)}`;
+                     let importedItem = discoveredItemsByZoneKey.get(zoneItemKey);
+                     if (!importedItem) {
+                        const category = sheetName.trim();
+                        importedItem = {
+                           ...sourceItem,
+                           id: `INV-IMP-${Date.now()}-${++generatedItemCount}`,
+                           category,
+                           zoneId: category,
+                           currentStock: 0,
+                           safeStock: 0,
+                           location: '',
+                           supplier: '',
+                           lastUpdated: new Date().toISOString().slice(0, 10),
+                           orderCategory: undefined,
+                           orderName: undefined,
+                        };
+                        discoveredItemsByZoneKey.set(zoneItemKey, importedItem);
+                     }
+                     itemsToRegisterByKey.set(
+                        `${normalizeStr(importedItem.category).toLocaleLowerCase()}|${buildItemKey(importedItem)}`,
+                        importedItem
+                     );
+                     return importedItem;
                   };
 
                   const colMap: { [index: number]: { name: string, type: 'IN' | 'OUT' } } = {};
@@ -236,6 +272,10 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                         };
                      }
                   }
+
+                  Object.values(colMap).forEach((info) => {
+                     if (!matchItem(info.name)) unmatchedItemsSet.add(info.name);
+                  });
 
                   let carryRowIndex = -1;
                   let carryRow = null;
@@ -293,6 +333,9 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                               itemId: matchedItem.id,
                               itemName: matchedItem.name,
                               category: matchedItem.category,
+                              zoneId: matchedItem.zoneId || matchedItem.category,
+                              plating: matchedItem.plating,
+                              spec: matchedItem.spec,
                               date: carryDate,
                               type: 'IN',
                               quantity: qty,
@@ -341,8 +384,8 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
 
                      let dateString = '';
                      let isValidRow = false;
-                     let isJan1 = false;
-                     let numVal = Number(dateCellStr);
+                     const isJan1 = false;
+                     const numVal = Number(dateCellStr);
 
                      if (!isNaN(numVal) && numVal > 30000) {
                         const dateObj = new Date((numVal - 25569) * 86400 * 1000);
@@ -427,6 +470,9 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                                  itemId: matchedItem.id,
                                  itemName: matchedItem.name,
                                  category: matchedItem.category,
+                                 zoneId: matchedItem.zoneId || matchedItem.category,
+                                 plating: matchedItem.plating,
+                                 spec: matchedItem.spec,
                                  date: dateString,
                                  type: info.type,
                                  quantity: qty,
@@ -523,11 +569,16 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
          if (options?.setState !== false) {
             setAnalysisReport(report);
             setPreviewData(filteredTransactions);
+            setItemsToRegister(Array.from(itemsToRegisterByKey.values()));
             setStep(3);
             setShowLoadingModal(false);
          }
 
-         return { transactions: filteredTransactions, report };
+         return {
+            transactions: filteredTransactions,
+            report,
+            itemsToRegister: Array.from(itemsToRegisterByKey.values()),
+         };
 
       } catch (e: any) {
          console.error("Matrix Processing Error", e);
@@ -577,9 +628,10 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
    const handleConfirm = () => {
       ActionLogger.log('History Batch Imported', {
          count: previewData.length,
-         sheets: analysisReport?.processedSheets
+         sheets: analysisReport?.processedSheets,
+         applyAcrossZones,
       });
-      onImport(previewData);
+      onImport(previewData, itemsToRegister, applyAcrossZones);
    };
 
    return (
@@ -818,11 +870,11 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                                  <td className="px-3 py-2 text-xs text-slate-500">{row.category}</td>
                                  <td className="px-3 py-2 font-medium">{row.itemName}</td>
                                  <td className="px-3 py-2 text-center">
-                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${row.type === 'IN' ? 'bg-orange-100 text-orange-700' : 'bg-red-100 text-red-700'}`}>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${row.type === 'IN' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}>
                                        {row.type === 'IN' ? '입고' : '출고'}
                                     </span>
                                  </td>
-                                 <td className="px-3 py-2 text-right font-bold">{Number(row.quantity).toFixed(1)}</td>
+                                 <td className="px-3 py-2 text-right font-bold">{Math.round(Number(row.quantity) || 0).toLocaleString('ko-KR')}</td>
                               </tr>
                            ))}
                         </tbody>
@@ -830,6 +882,22 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                   </div>
 
                   {/* Action Buttons */}
+                  {itemsToRegister.length > 0 && (
+                     <label className="mb-4 flex items-start gap-2 rounded-lg border border-orange-200 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/20 p-3 text-sm text-slate-700 dark:text-slate-300 shrink-0">
+                        <input
+                           type="checkbox"
+                           checked={applyAcrossZones}
+                           onChange={(event) => setApplyAcrossZones(event.target.checked)}
+                           className="mt-0.5 accent-orange-600"
+                        />
+                        <span>
+                           신규 품목을 전체 대분류에 확대 적용
+                           <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+                              선택하지 않으면 수불부 시트의 ZONE에만 현재고 0으로 등록합니다. 선택하면 다른 ZONE에도 누락 품목만 현재고 0으로 추가합니다.
+                           </span>
+                        </span>
+                     </label>
+                  )}
                   <div className="flex justify-end gap-3 shrink-0 pb-4">
                      <button
                         onClick={() => setStep(1)}
@@ -840,11 +908,11 @@ const TransactionHistoryImport: React.FC<TransactionHistoryImportProps> = ({ onI
                      </button>
                      <button
                         onClick={handleConfirm}
-                        disabled={previewData.length === 0}
+                        disabled={previewData.length === 0 && itemsToRegister.length === 0}
                         className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg shadow-md flex items-center gap-2 disabled:opacity-50"
                      >
                         <CheckCircle size={18} />
-                        등록 완료 ({previewData.length.toLocaleString()}건)
+                        등록 완료 ({previewData.length.toLocaleString()}건 · 품목 {itemsToRegister.length.toLocaleString()}종)
                      </button>
                   </div>
                </div>

@@ -10,8 +10,18 @@ export interface MasterDataManagerModalProps {
   onUpdateInventory: (
     newInventory: InventoryItem[],
     changedItems: InventoryItem[],
-    deleteItemIds?: string[]
-  ) => void;
+    deleteItemIds?: string[],
+    syncTransactionNames?: boolean
+  ) => Promise<number | null | void> | number | null | void;
+  onNormalizeZoneItems: (
+    inventory: InventoryItem[],
+    masterData: MasterData
+  ) => Promise<boolean>;
+  onCreateZoneItems: (
+    category: string,
+    items: InventoryItem[],
+    masterData: MasterData
+  ) => Promise<{ masterData: MasterData; savedItemCount: number; failedItemCount: number }>;
   onCreateItems?: (categories: string[], name: string) => Promise<void>;
   onClose: () => void;
 }

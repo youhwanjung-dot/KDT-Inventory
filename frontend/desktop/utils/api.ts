@@ -115,9 +115,13 @@ export const api = {
     masterData?: MasterData;
   }) => {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
-      return { message: 'ok (local/mockup)' };
+      return {
+        message: 'ok (local/mockup)',
+        inventoryCount: data.inventory.length,
+        transactionCount: data.transactions.length,
+      };
     }
-    return fetchAPI<{ message: string }>('/migration', {
+    return fetchAPI<{ message: string; inventoryCount: number; transactionCount: number }>('/migration', {
       method: 'POST',
       body: JSON.stringify(data),
     });

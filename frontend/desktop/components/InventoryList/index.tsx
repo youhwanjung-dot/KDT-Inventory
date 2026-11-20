@@ -23,14 +23,13 @@ const InventoryList: React.FC<InventoryListProps> = ({
   user,
   initialFilterMode = 'ALL',
   initialCategoryFilter = null,
+  stockReportRequest,
   onAdd,
   onEdit,
   onReset,
   onTransaction,
   onOpenDBManager,
   onOpenMonthlyReport,
-  onOpenMonthlyUsageReport,
-  onOpenReport,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyLowStock, setShowOnlyLowStock] = useState<boolean>(initialFilterMode === 'LOW_STOCK');
@@ -51,6 +50,10 @@ const InventoryList: React.FC<InventoryListProps> = ({
     isError: false,
     message: '',
   });
+
+  useEffect(() => {
+    if (stockReportRequest > 0) setShowReport(true);
+  }, [stockReportRequest]);
 
   useEffect(() => {
     setShowOnlyLowStock(initialFilterMode === 'LOW_STOCK');
@@ -230,8 +233,8 @@ const InventoryList: React.FC<InventoryListProps> = ({
         isError: false,
         message:
           unassignedCount > 0
-            ? `${fileName} (${targetYear}년 캘린더·40슬롯) 생성 완료 (ZONE당 최대 40개 초과분 ${unassignedCount}건 미배치)`
-            : `${fileName} (${targetYear}년 1년치 캘린더 · ZONE당 40슬롯 · 전년 이월재고 자동계산) 파일이 생성되었습니다.`,
+            ? `${fileName} (${targetYear}년 캘린더 · ZONE별 40개 단위 페이지) 생성 완료 (미배치 ${unassignedCount}건)`
+            : `${fileName} (${targetYear}년 캘린더 · ZONE별 40개 단위 페이지 · 전체 DB 복구 원본 포함) 파일이 생성되었습니다.`,
       });
     } catch (error) {
       console.error('Excel export failed:', error);
@@ -274,12 +277,9 @@ const InventoryList: React.FC<InventoryListProps> = ({
           exportYear={exportYear}
           setExportYear={setExportYear}
           onOpenSettlement={() => setShowSettlementModal(true)}
-          onOpenReport={onOpenReport}
           onOpenMonthlyReport={onOpenMonthlyReport}
           onOpenDBManager={onOpenDBManager}
           onExportExcel={handleExportExcel}
-          onShowStockReport={() => setShowReport(true)}
-          onOpenMonthlyUsageReport={onOpenMonthlyUsageReport}
           onResetLayout={() => setShowLayoutReset(true)}
           onResetDB={handleResetClick}
           onAdd={onAdd}
@@ -307,7 +307,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
             </div>
             <span className="text-slate-300">|</span>
             <span className="text-slate-600 dark:text-slate-400">
-              <strong className="text-amber-600 dark:text-amber-400">공통(N)</strong>: N개 ZONE 중복 투입 자재 (상단 [공통자재 합산보기]로 혼입 총재고 실사 가능)
+              <strong className="text-amber-600 dark:text-amber-400">공통(N)</strong>: N개 ZONE 중복 투입 자재
             </span>
           </div>
           <div className="flex items-center gap-4 text-slate-500 dark:text-slate-400">

@@ -6,27 +6,32 @@ import { ActionLogger } from '../../utils/logger';
 import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY, FieldDef } from '../../constants';
 import { FieldMapping, cleanNumber, resolveMergedCells, resolveFormulaRefs, getKeywords } from './utils';
 import { processFixedLegacyFormat, processKdtInboundSheet, guessMapping } from './LegacyParser';
+import { DatabaseBackupCounts, DatabaseBackupData, parseDatabaseBackupWorkbook } from './backupWorkbook';
 import StepUpload from './StepUpload';
 import StepMapping from './StepMapping';
 import StepPreview from './StepPreview';
 import ConfirmationModal from '../ConfirmationModal';
 
 interface ExcelImportProps {
-    onImport: (items: InventoryItem[]) => void;
+    onImport: (items: InventoryItem[], applyAcrossZones: boolean) => void;
+    onRestore: (data: DatabaseBackupData) => void;
     onCancel: () => void;
     currentInventory: InventoryItem[];
 }
 
-const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentInventory }) => {
+const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onRestore, onCancel, currentInventory }) => {
     const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Upload, 2: Map, 3: Review
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [file, setFile] = useState<File | null>(null);
+    const [, setFile] = useState<File | null>(null);
     const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
     const [rawRows, setRawRows] = useState<any[]>([]);
     const [mapping, setMapping] = useState<FieldMapping>({} as FieldMapping);
     const [previewItems, setPreviewItems] = useState<InventoryItem[]>([]);
     const [isLegacyMode, setIsLegacyMode] = useState(false);
     const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
+    const [restoreConfirmation, setRestoreConfirmation] = useState<{
+        data: DatabaseBackupData;
+        counts: DatabaseBackupCounts;
+    } | null>(null);
 
     // Load dbFields from localStorage
     const [dbFields, setDbFields] = useState<FieldDef[]>(() => {
@@ -46,6 +51,27 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
             reader.onload = (evt) => {
                 const bstr = evt.target?.result;
                 const wb = read(bstr, { type: 'binary' });
+                const backupSheetNames = ['DB_품목원본', 'DB_거래원본', 'DB_기준정보'];
+                const presentBackupSheets = backupSheetNames.filter((name) => wb.Sheets[name]);
+                if (presentBackupSheets.length > 0) {
+                    if (presentBackupSheets.length !== backupSheetNames.length) {
+                        setAlertModal({
+                            title: 'DB 복구 원본 누락',
+                            message: `복구용 시트 3개가 모두 필요합니다. 확인된 시트: ${presentBackupSheets.join(', ')}`,
+                        });
+                        return;
+                    }
+                    try {
+                        const backup = parseDatabaseBackupWorkbook(wb);
+                        setRestoreConfirmation(backup);
+                    } catch (error) {
+                        setAlertModal({
+                            title: 'DB 복구 파일 검증 실패',
+                            message: error instanceof Error ? error.message : String(error),
+                        });
+                    }
+                    return;
+                }
                 const legacyItems: InventoryItem[] = [];
                 const legacyMap = new Map<string, InventoryItem>();
                 const LEGACY_HEADER_ROW_INDEX = 4; // 0-based, our R4 MAIN header is at Excel row 5
@@ -89,7 +115,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     });
                 }
 
-                const tryParseLegacy = (sheetName: string) => {
+                const tryParseLegacy = (sheetName: string, defaultCategory?: string) => {
                     const ws = wb.Sheets[sheetName];
                     if (!ws) return;
                     resolveMergedCells(ws);
@@ -97,19 +123,17 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     const data = utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true }) as any[][];
                     if (!data || data.length === 0) return;
 
-                    // Also support KDT Inbound format on arbitrary sheet names if headers match
                     const kdtRes = processKdtInboundSheet(data, sheetName);
                     if (kdtRes.success && kdtRes.items.length > 0) {
                         kdtRes.items.forEach(addLegacyItem);
                         return;
                     }
 
-                    // Dynamic header scan
                     const normalize = (s: any) => String(s || '').replace(/\s/g, '').toLowerCase();
                     const hasHeaders = (row: any[]) => {
                         const rowNorm = row.map(normalize);
-                        const hasName = rowNorm.some(c => ['소분류', '품목명', '품명'].some(k => rowNorm.includes(normalize(k))));
-                        const hasStock = rowNorm.some(c => ['잔량', '현재고', '재고', '기준재고'].some(k => rowNorm.includes(normalize(k))));
+                        const hasName = rowNorm.some(c => ['소분류', '품목명', '품명'].some(k => c.includes(normalize(k))));
+                        const hasStock = rowNorm.some(c => ['잔량', '현재고', '재고', '기준재고'].some(k => c.includes(normalize(k))));
                         return hasName && hasStock;
                     };
                     let pickedHeader = -1;
@@ -124,28 +148,37 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     const candidates = pickedHeader !== -1 ? [pickedHeader] : LEGACY_HEADER_ROW_CANDIDATES;
                     for (const idx of candidates) {
                         if (idx < 0 || idx >= data.length) continue;
-                        const result = processFixedLegacyFormat(data, idx, dbFields);
+                        const result = processFixedLegacyFormat(data, idx, dbFields, defaultCategory);
                         if (result.success && result.items.length > 0) {
                             result.items.forEach(addLegacyItem);
                         }
                     }
                 };
 
-                if (legacyMap.size === 0) {
-                    const preferMain = wb.SheetNames.find(n => {
-                        const norm = String(n || '').replace(/\s/g, '').toLowerCase();
-                        return norm.includes('현재고') || norm.includes('재고현황') || norm === 'main' || norm === 'inventory';
-                    });
-                    if (preferMain) {
-                        tryParseLegacy(preferMain);
-                    } else {
-                        wb.SheetNames.forEach((sheetName) => {
-                            const normalized = String(sheetName || '').replace(/\s/g, '').toLowerCase();
-                            if (['표지', 'cover'].includes(normalized)) return;
-                            tryParseLegacy(sheetName);
-                        });
-                    }
+                const zoneFromSheetName = (sheetName: string): string | undefined => {
+                    const norm = String(sheetName || '').replace(/\s/g, '');
+                    if (/^zone\d+/i.test(norm)) return norm;
+                    return undefined;
+                };
+
+                const parsedSheets = new Set<string>();
+                const preferMain = wb.SheetNames.find(n => {
+                    const norm = String(n || '').replace(/\s/g, '').toLowerCase();
+                    return norm.includes('현재고') || norm.includes('재고현황') || norm === 'main' || norm === 'inventory';
+                });
+                if (preferMain) {
+                    tryParseLegacy(preferMain);
+                    parsedSheets.add(preferMain);
                 }
+                wb.SheetNames.forEach((sheetName) => {
+                    const normalized = String(sheetName || '').replace(/\s/g, '').toLowerCase();
+                    if (['표지', 'cover'].includes(normalized)) return;
+                    if (parsedSheets.has(sheetName)) return;
+                    if (/_inbound$/i.test(String(sheetName || '').trim())) return;
+                    const zoneCat = zoneFromSheetName(sheetName);
+                    tryParseLegacy(sheetName, zoneCat);
+                    parsedSheets.add(sheetName);
+                });
 
                 legacyMap.forEach(item => legacyItems.push(item));
 
@@ -240,7 +273,9 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     // If not, proceed with standard detection.
 
                     if (data.length > LEGACY_HEADER_ROW_INDEX) {
-                        const result = processFixedLegacyFormat(data, LEGACY_HEADER_ROW_INDEX, dbFields);
+                        const wsNorm = String(wsname || '').replace(/\s/g, '');
+                        const fallbackCat = /^zone\d+/i.test(wsNorm) ? wsNorm : undefined;
+                        const result = processFixedLegacyFormat(data, LEGACY_HEADER_ROW_INDEX, dbFields, fallbackCat);
                         if (result.success && result.items.length >= MIN_LEGACY_ITEMS) {
                             setPreviewItems(result.items);
                             setIsLegacyMode(true);
@@ -347,6 +382,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                 lastUpdated: today,
                 category: category,
                 name: name,
+                plating: mapping.plating ? String(rowObj[mapping.plating] || '') : '',
+                spec: mapping.spec ? String(rowObj[mapping.spec] || '') : '',
                 pkgUnit: rowObj[mapping.pkgUnit] ? String(rowObj[mapping.pkgUnit]) : '',
                 pkgType: rowObj[mapping.pkgType] ? String(rowObj[mapping.pkgType]) : '',
                 outerPkg: rowObj[mapping.outerPkg] ? String(rowObj[mapping.outerPkg]) : '',
@@ -365,9 +402,13 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
         setStep(3);
     };
 
-    const handleFinalConfirm = () => {
-        ActionLogger.log('Excel Import Confirmed', { count: previewItems.length, mode: isLegacyMode ? 'Legacy' : 'Standard' });
-        onImport(previewItems);
+    const handleFinalConfirm = (applyAcrossZones: boolean) => {
+        ActionLogger.log('Excel Import Confirmed', {
+            count: previewItems.length,
+            mode: isLegacyMode ? 'Legacy' : 'Standard',
+            applyAcrossZones,
+        });
+        onImport(previewItems, applyAcrossZones);
     };
 
     return (
@@ -427,6 +468,37 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onCancel, currentIn
                     message={alertModal.message}
                     confirmLabel="확인"
                     onConfirm={() => setAlertModal(null)}
+                />
+            )}
+            {restoreConfirmation && (
+                <ConfirmationModal
+                    title="DB 전체 복구 확인"
+                    message={
+                        <div className="space-y-2">
+                            <p className="font-bold text-red-600">
+                                현재 재고·거래·기준정보를 모두 아래 백업 내용으로 교체합니다.
+                            </p>
+                            <p>품목: {restoreConfirmation.counts.inventory.toLocaleString()}건</p>
+                            <p>수불 거래: {restoreConfirmation.counts.transactions.toLocaleString()}건</p>
+                            <p>기준정보 항목: {restoreConfirmation.counts.masterDataEntries.toLocaleString()}건</p>
+                            <p className="text-xs text-slate-500">
+                                일반 일괄등록의 전 ZONE 품목 자동 보충은 실행하지 않습니다.
+                            </p>
+                        </div>
+                    }
+                    confirmLabel="전체 DB 복구"
+                    cancelLabel="취소"
+                    isDangerous
+                    onConfirm={() => {
+                        const { data } = restoreConfirmation;
+                        setRestoreConfirmation(null);
+                        ActionLogger.log('Excel DB Restore Confirmed', {
+                            inventoryCount: data.inventory.length,
+                            transactionCount: data.transactions.length,
+                        });
+                        onRestore(data);
+                    }}
+                    onCancel={() => setRestoreConfirmation(null)}
                 />
             )}
         </div>

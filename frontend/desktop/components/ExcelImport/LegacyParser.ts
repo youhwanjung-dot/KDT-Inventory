@@ -198,11 +198,11 @@ export const processKdtInboundSheet = (
  * - KDT MAIN sheet: [연번 | ZONE(대분류) | 품명 | 도금 | 규격 | 단위/환산 | 현재고(EA) | 보관위치 | 1대당소요 | 비고]
  * - Legacy sheet:   [연번 | 대분류 | 소분류 | 포장단위 | 박스구성 | 소포장 | 잔량(Qty) | 잔량(Unit)]
  */
-export const processLegacyFormat = (data: any[][], headerRowIndex: number, dbFields: FieldDef[]): { success: boolean, items: InventoryItem[] } => {
-    return processFixedLegacyFormat(data, headerRowIndex, dbFields);
+export const processLegacyFormat = (data: any[][], headerRowIndex: number, dbFields: FieldDef[], defaultCategory?: string): { success: boolean, items: InventoryItem[] } => {
+    return processFixedLegacyFormat(data, headerRowIndex, dbFields, defaultCategory);
 };
 
-export const processFixedLegacyFormat = (data: any[][], headerRowIndex: number, dbFields: FieldDef[]): { success: boolean, items: InventoryItem[] } => {
+export const processFixedLegacyFormat = (data: any[][], headerRowIndex: number, dbFields: FieldDef[], defaultCategory?: string): { success: boolean, items: InventoryItem[] } => {
     try {
         const headerRow = data[headerRowIndex];
         if (!headerRow) return { success: false, items: [] };
@@ -229,7 +229,7 @@ export const processFixedLegacyFormat = (data: any[][], headerRowIndex: number, 
         const unitIdx = colIdx.unit > -1 ? colIdx.unit : colIdx.stock + 1;
 
         const items: InventoryItem[] = [];
-        let lastCategory = 'ZONE16_Plus';
+        let lastCategory = defaultCategory || 'ZONE16_Plus';
         const today = new Date().toISOString().split('T')[0];
 
         for (let i = headerRowIndex + 1; i < data.length; i++) {

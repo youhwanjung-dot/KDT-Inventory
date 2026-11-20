@@ -340,7 +340,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                     !canIn
                       ? 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800/40 dark:border-slate-800 dark:text-slate-600 cursor-not-allowed opacity-60'
                       : type === 'IN'
-                      ? 'bg-orange-50 border-orange-500 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 shadow-sm ring-1 ring-orange-500'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 shadow-sm ring-1 ring-blue-500'
                       : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400'
                   }`}
                 >
@@ -390,7 +390,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                       placeholder="0"
                       step="1"
                       min="1"
-                      className={`${inputClass} text-right font-bold text-lg ${type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}
+                      className={`${inputClass} text-right font-bold text-lg ${type === 'IN' ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400'}`}
                       required
                     />
                   </div>
@@ -581,14 +581,14 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold border ${
                             tx.type === 'IN'
-                              ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800'
                               : 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
                           }`}
                         >
                           {tx.type === 'IN' ? '입고' : '출고'}
                         </span>
                       </td>
-                      <td className={`px-4 py-3 text-right font-bold font-mono ${tx.type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}>
+                      <td className={`px-4 py-3 text-right font-bold font-mono ${tx.type === 'IN' ? 'text-blue-600' : 'text-red-600'}`}>
                         {tx.type === 'IN' ? '+' : '-'}
                         {formatInteger(tx.quantity)}
                       </td>
@@ -628,7 +628,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <p>선택하신 이력을 정말 삭제하시겠습니까?</p>
               <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded text-center my-2">
                 <span className="font-mono text-slate-600 dark:text-slate-400 mr-2">{deleteTarget.date}</span>
-                <span className={`font-bold ${deleteTarget.type === 'IN' ? 'text-orange-600' : 'text-red-600'}`}>
+                <span className={`font-bold ${deleteTarget.type === 'IN' ? 'text-blue-600' : 'text-red-600'}`}>
                   {deleteTarget.type === 'IN' ? '입고' : '출고'} {formatInteger(deleteTarget.quantity)} EA
                 </span>
               </div>

@@ -12,13 +12,20 @@ import {
   Plus,
   ChevronLeft,
   Factory,
+  Layers,
 } from 'lucide-react';
 import { InventoryItem, MasterData, ZoneMeta } from '../../types';
 import { ActionLogger } from '../../utils/logger';
 import { api } from '../../utils/api';
 import { AnalysisResult, MasterDataManagerModalProps, TAB_CONFIG, TargetField } from './types';
+import { createZoneItemSyncPlan, ZoneItemSyncPlan } from './zoneItemSync';
 import ZoneMetaModal from './ZoneMetaModal';
 import AnalysisConfirmModal from './AnalysisConfirmModal';
+
+const getItemDefinitionKey = (item: InventoryItem) =>
+  [item.name, item.plating, item.spec]
+    .map((part) => String(part || '').trim().toLocaleLowerCase())
+    .join('\u0000');
 
 const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   inventory,
@@ -26,6 +33,8 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   masterData: masterDataProp,
   onMasterDataChange,
   onUpdateInventory,
+  onNormalizeZoneItems,
+  onCreateZoneItems,
   onCreateItems,
   onClose,
 }) => {
@@ -37,16 +46,29 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   const [zoneMetaTarget, setZoneMetaTarget] = useState<{ name: string; meta: ZoneMeta } | null>(null);
 
   const [newCategoryValue, setNewCategoryValue] = useState('');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [addCategoryError, setAddCategoryError] = useState('');
+  const [addCategoryResult, setAddCategoryResult] = useState('');
   const [newNameValue, setNewNameValue] = useState('');
   const [isAddingSubName, setIsAddingSubName] = useState(false);
+  const [showSubNameScopePrompt, setShowSubNameScopePrompt] = useState(false);
   const [addSubNameError, setAddSubNameError] = useState('');
+  const [showExistingItemPicker, setShowExistingItemPicker] = useState(false);
+  const [sourceZone, setSourceZone] = useState('');
+  const [existingItemSearch, setExistingItemSearch] = useState('');
+  const [selectedExistingItemKeys, setSelectedExistingItemKeys] = useState<Set<string>>(new Set());
+  const [isAddingExistingItems, setIsAddingExistingItems] = useState(false);
+  const [existingItemError, setExistingItemError] = useState('');
+  const [existingItemResult, setExistingItemResult] = useState('');
   const newNameInputRef = useRef<HTMLInputElement>(null);
   const [moveTargets, setMoveTargets] = useState<Record<string, string>>({});
   const [isOrderMode, setIsOrderMode] = useState(false);
   const [draggingValue, setDraggingValue] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const pendingChangedRef = useRef<InventoryItem[]>([]);
-  const pendingDeleteIdsRef = useRef<string[]>([]);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [isSyncingZoneItems, setIsSyncingZoneItems] = useState(false);
+  const [zoneSyncResult, setZoneSyncResult] = useState<string | null>(null);
+  const [pendingZoneSync, setPendingZoneSync] = useState<ZoneItemSyncPlan | null>(null);
 
   const [customMasterData, setCustomMasterData] = useState<MasterData>({
     categories: masterDataProp.categories || [],
@@ -117,6 +139,57 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
     return ordered;
   }, [inventory, customMasterData.categories]);
 
+  const commonItemTemplates = useMemo(() => {
+    if (categoryOptions.length === 0) return [];
+    const definitionsByCategory = categoryOptions.map((category) => {
+      const definitions = new Map<string, InventoryItem>();
+      inventory.forEach((item) => {
+        if (item.category !== category || !item.name.trim()) return;
+        const key = getItemDefinitionKey(item);
+        if (!definitions.has(key)) definitions.set(key, item);
+      });
+      return definitions;
+    });
+    const firstCategoryDefinitions = definitionsByCategory[0];
+    return Array.from(firstCategoryDefinitions.entries())
+      .filter(([key]) => definitionsByCategory.every((definitions) => definitions.has(key)))
+      .map(([, item]) => item);
+  }, [categoryOptions, inventory]);
+
+  const sourceZoneOptions = useMemo(
+    () => categoryOptions.filter((category) => category !== drillCategory),
+    [categoryOptions, drillCategory]
+  );
+  const selectedSourceZone = sourceZoneOptions.includes(sourceZone)
+    ? sourceZone
+    : sourceZoneOptions[0] || '';
+  const availableExistingItems = useMemo(() => {
+    if (!drillCategory || !selectedSourceZone) return [];
+    const targetKeys = new Set(
+      inventory
+        .filter((item) => item.category === drillCategory)
+        .map(getItemDefinitionKey)
+    );
+    const sourceDefinitions = new Map<string, InventoryItem>();
+    inventory.forEach((item) => {
+      if (item.category !== selectedSourceZone || !item.name.trim()) return;
+      const key = getItemDefinitionKey(item);
+      if (!targetKeys.has(key) && !sourceDefinitions.has(key)) sourceDefinitions.set(key, item);
+    });
+    const query = existingItemSearch.trim().toLocaleLowerCase();
+    return Array.from(sourceDefinitions.values())
+      .filter((item) =>
+        [item.name, item.plating, item.spec]
+          .some((part) => String(part || '').toLocaleLowerCase().includes(query))
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [drillCategory, existingItemSearch, inventory, selectedSourceZone]);
+
+  const zoneItemSyncPlan = useMemo(
+    () => createZoneItemSyncPlan(inventory, customMasterData),
+    [inventory, customMasterData]
+  );
+
   const dataEntries = useMemo<[string, number][]>(() => {
     const map = new Map<string, number>();
     if (effectiveTabKey === 'category') {
@@ -146,35 +219,104 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   }, [effectiveTabKey, drillCategory, categoryOptions, customMasterData, inventory]);
 
   // Add new ZONE
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     const trimmed = newCategoryValue.trim();
-    if (!trimmed || categoryOptions.includes(trimmed)) return;
+    if (!trimmed || categoryOptions.includes(trimmed) || isAddingCategory) return;
     const newZoneId = `Z-${Date.now().toString(36).toUpperCase()}`;
-    persistMasterData((prev) => ({
-      ...prev,
-      categories: [...prev.categories, trimmed],
-      namesByCategory: { ...prev.namesByCategory, [trimmed]: prev.namesByCategory[trimmed] || [] },
-      zoneMeta: {
-        ...(prev.zoneMeta || {}),
-        [newZoneId]: { zoneId: newZoneId, displayName: trimmed, aliasHistory: [] },
-      },
-    }));
-    setNewCategoryValue('');
-    ActionLogger.log('ZONE Created', { zone: trimmed, zoneId: newZoneId });
+    setIsAddingCategory(true);
+    setAddCategoryError('');
+    setAddCategoryResult('');
+    try {
+      const orderedDefinitions = [...commonItemTemplates].sort((a, b) => {
+        const orderA = customMasterData.nameOrder.indexOf(a.name);
+        const orderB = customMasterData.nameOrder.indexOf(b.name);
+        if (orderA >= 0 && orderB >= 0 && orderA !== orderB) return orderA - orderB;
+        if (orderA >= 0) return -1;
+        if (orderB >= 0) return 1;
+        return a.name.localeCompare(b.name);
+      });
+      const today = new Date().toISOString().slice(0, 10);
+      const nextNameOrder = Array.from(
+        new Set([...customMasterData.nameOrder, ...orderedDefinitions.map((item) => item.name)])
+      );
+      const usedItemIds = new Set(inventory.map((item) => item.id));
+      let idSequence = 0;
+      const allocateItemId = () => {
+        let id = '';
+        do {
+          id = `INV-${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${idSequence++}`;
+        } while (usedItemIds.has(id));
+        usedItemIds.add(id);
+        return id;
+      };
+      const newItems = orderedDefinitions.map((template): InventoryItem => ({
+        ...template,
+        id: allocateItemId(),
+        category: trimmed,
+        zoneId: newZoneId,
+        currentStock: 0,
+        safeStock: 0,
+        location: '',
+        supplier: '',
+        lastUpdated: today,
+        orderCategory: categoryOptions.length,
+        orderName: nextNameOrder.indexOf(template.name),
+      }));
+      const nextMasterData: MasterData = {
+        ...customMasterData,
+        categories: Array.from(new Set([...customMasterData.categories, ...categoryOptions, trimmed])),
+        namesByCategory: {
+          ...customMasterData.namesByCategory,
+          [trimmed]: Array.from(new Set(newItems.map((item) => item.name))),
+        },
+        nameOrder: nextNameOrder,
+        zoneMeta: {
+          ...(customMasterData.zoneMeta || {}),
+          [newZoneId]: { zoneId: newZoneId, displayName: trimmed, aliasHistory: [] },
+        },
+      };
+
+      const result = await onCreateZoneItems(trimmed, newItems, nextMasterData);
+      setCustomMasterData(result.masterData);
+      onMasterDataChange(result.masterData);
+      setNewCategoryValue('');
+      setAddCategoryResult(
+        result.failedItemCount > 0
+          ? `대분류 추가 완료: 품목 ${result.savedItemCount}종 저장, ${result.failedItemCount}종 저장 실패`
+          : `대분류 추가 완료: 공통 품목 ${result.savedItemCount}종을 현재고 0으로 추가`
+      );
+      ActionLogger.log('ZONE Created with common item definitions', {
+        zone: trimmed,
+        zoneId: newZoneId,
+        itemCount: result.savedItemCount,
+        failedItemCount: result.failedItemCount,
+      });
+    } catch (error) {
+      console.error('Failed to create ZONE with shared item definitions:', error);
+      setAddCategoryError(error instanceof Error ? error.message : '대분류 추가에 실패했습니다.');
+    } finally {
+      setIsAddingCategory(false);
+    }
   };
 
   // Add new item name inside drilled ZONE
   const handleAddSubName = async () => {
-    if (!drillCategory || isAddingSubName) return;
+    if (!drillCategory || isAddingSubName || showSubNameScopePrompt) return;
     const trimmed = newNameValue.trim();
     if (!trimmed) {
       setAddSubNameError('신규 품명을 입력한 후 품목 추가를 눌러 주세요.');
       newNameInputRef.current?.focus();
       return;
     }
-    const categories = Array.from(new Set(categoryOptions));
-    if (!categories.includes(drillCategory)) categories.push(drillCategory);
-
+    setShowSubNameScopePrompt(true);
+  };
+  const confirmAddSubName = async (applyAcrossZones: boolean) => {
+    if (!drillCategory || isAddingSubName) return;
+    const trimmed = newNameValue.trim();
+    const categories = applyAcrossZones
+      ? Array.from(new Set([...categoryOptions, drillCategory]))
+      : [drillCategory];
+    setShowSubNameScopePrompt(false);
     setIsAddingSubName(true);
     setAddSubNameError('');
     const nextNamesByCategory = { ...customMasterData.namesByCategory };
@@ -202,6 +344,107 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
       setAddSubNameError(error instanceof Error ? error.message : '품목 등록에 실패했습니다.');
     } finally {
       setIsAddingSubName(false);
+    }
+  };
+
+  const openExistingItemPicker = () => {
+    setSourceZone(sourceZoneOptions[0] || '');
+    setExistingItemSearch('');
+    setSelectedExistingItemKeys(new Set());
+    setExistingItemError('');
+    setExistingItemResult('');
+    setShowExistingItemPicker(true);
+  };
+
+  const handleAddSelectedExistingItems = async () => {
+    if (!drillCategory || isAddingExistingItems) return;
+    const targetKeys = new Set(
+      inventory
+        .filter((item) => item.category === drillCategory)
+        .map(getItemDefinitionKey)
+    );
+    const selectedTemplates = availableExistingItems.filter(
+      (item) => selectedExistingItemKeys.has(getItemDefinitionKey(item)) &&
+        !targetKeys.has(getItemDefinitionKey(item))
+    );
+    if (selectedTemplates.length === 0) {
+      setExistingItemError('대상 ZONE에 추가할 품목을 선택해 주세요.');
+      return;
+    }
+
+    setIsAddingExistingItems(true);
+    setExistingItemError('');
+    const nextNameOrder = Array.from(
+      new Set([...customMasterData.nameOrder, ...selectedTemplates.map((item) => item.name)])
+    );
+    const usedItemIds = new Set(inventory.map((item) => item.id));
+    let idSequence = 0;
+    const allocateItemId = () => {
+      let id = '';
+      do {
+        id = `INV-${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${idSequence++}`;
+      } while (usedItemIds.has(id));
+      usedItemIds.add(id);
+      return id;
+    };
+    const zoneMeta = getZoneMetaForName(drillCategory);
+    const today = new Date().toISOString().slice(0, 10);
+    const newItems = selectedTemplates.map((template): InventoryItem => ({
+      ...template,
+      id: allocateItemId(),
+      category: drillCategory,
+      zoneId: zoneMeta.zoneId,
+      currentStock: 0,
+      safeStock: 0,
+      location: '',
+      supplier: '',
+      lastUpdated: today,
+      orderCategory: Math.max(0, categoryOptions.indexOf(drillCategory)),
+      orderName: nextNameOrder.indexOf(template.name),
+    }));
+    const nextMasterData: MasterData = {
+      ...customMasterData,
+      categories: Array.from(new Set([...customMasterData.categories, ...categoryOptions, drillCategory])),
+      namesByCategory: {
+        ...customMasterData.namesByCategory,
+        [drillCategory]: Array.from(new Set([
+          ...(customMasterData.namesByCategory[drillCategory] || []),
+          ...newItems.map((item) => item.name),
+        ])),
+      },
+      nameOrder: nextNameOrder,
+      zoneMeta: {
+        ...(customMasterData.zoneMeta || {}),
+        [zoneMeta.zoneId]: zoneMeta,
+      },
+    };
+
+    try {
+      const result = await onCreateZoneItems(drillCategory, newItems, nextMasterData);
+      setCustomMasterData(result.masterData);
+      onMasterDataChange(result.masterData);
+      setExistingItemResult(
+        result.failedItemCount > 0
+          ? `${result.savedItemCount}개 추가, ${result.failedItemCount}개 저장 실패`
+          : `${result.savedItemCount}개 품목을 ${drillCategory}에 현재고 0으로 추가했습니다.`
+      );
+      if (result.failedItemCount > 0) {
+        setExistingItemError('실패한 품목은 선택 창에서 다시 시도할 수 있습니다.');
+      } else {
+        setShowExistingItemPicker(false);
+        setSelectedExistingItemKeys(new Set());
+      }
+      ActionLogger.log('Existing Items Added to ZONE', {
+        sourceZone: selectedSourceZone,
+        targetZone: drillCategory,
+        saved: result.savedItemCount,
+        failed: result.failedItemCount,
+      });
+    } catch (error) {
+      console.error('Failed to add selected items to ZONE:', error);
+      setExistingItemError(error instanceof Error ? error.message : '기존 품목 추가에 실패했습니다.');
+    } finally {
+      setIsAddingExistingItems(false);
     }
   };
 
@@ -465,16 +708,52 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
 
   const handleSyncToServer = async () => {
     setIsSyncing(true);
+    setSyncResult(null);
     try {
       await api.saveMasterData(customMasterData);
-      if (pendingChangedRef.current.length > 0 || pendingDeleteIdsRef.current.length > 0) {
-        onUpdateInventory(inventory, pendingChangedRef.current, pendingDeleteIdsRef.current);
-        pendingChangedRef.current = [];
-        pendingDeleteIdsRef.current = [];
+      const updatedNames = await onUpdateInventory(inventory, [], [], true);
+      if (updatedNames === null) {
+        setSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');
+        return;
       }
+      setSyncResult(`동기화 완료: 수불 이력 ${typeof updatedNames === 'number' ? updatedNames : 0}건의 품명을 갱신했습니다.`);
       ActionLogger.log('MasterData Synced');
+    } catch (error) {
+      console.error('Failed to sync master data:', error);
+      setSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const executeZoneItemSync = async () => {
+    if (!pendingZoneSync || isSyncingZoneItems) return;
+    const plan = pendingZoneSync;
+    setPendingZoneSync(null);
+    setIsSyncingZoneItems(true);
+    setZoneSyncResult(null);
+    try {
+      const succeeded = await onNormalizeZoneItems(plan.inventory, plan.masterData);
+      if (!succeeded) {
+        setZoneSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');
+        return;
+      }
+      setCustomMasterData(plan.masterData);
+      onMasterDataChange(plan.masterData);
+      setZoneSyncResult(
+        plan.totalAdded > 0
+          ? `공통 품목 동기화 완료: ${plan.totalAdded}개 품목을 현재고 0으로 보충했습니다.`
+          : '공통 품목 기준정보 동기화 완료: 추가된 재고 품목은 없습니다.'
+      );
+      ActionLogger.log('ZONE Shared Item Sync', {
+        additionsByCategory: plan.additionsByCategory,
+        totalAdded: plan.totalAdded,
+      });
+    } catch (error) {
+      console.error('Failed to sync shared ZONE items:', error);
+      setZoneSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');
+    } finally {
+      setIsSyncingZoneItems(false);
     }
   };
 
@@ -538,7 +817,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
           {/* Drilldown Breadcrumb & Quick Add */}
           <div className="px-6 py-3 bg-slate-50/70 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
             {drillCategory ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => {
                     setDrillCategory(null);
@@ -558,26 +837,45 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
             )}
 
             {effectiveTabKey === 'category' && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="text"
                   value={newCategoryValue}
-                  onChange={(e) => setNewCategoryValue(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
+                  disabled={isAddingCategory}
+                  onChange={(e) => {
+                    setNewCategoryValue(e.target.value);
+                    setAddCategoryError('');
+                    setAddCategoryResult('');
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && void handleAddCategory()}
                   placeholder="신규 ZONE명 (예: ZONE19, Fluid16)"
                   className="px-3 py-1.5 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white w-60"
                 />
                 <button
-                  onClick={handleAddCategory}
-                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1"
+                  onClick={() => { void handleAddCategory(); }}
+                  disabled={isAddingCategory || !newCategoryValue.trim()}
+                  className="px-3 py-1.5 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Plus size={15} /> ZONE 추가
+                  <Plus size={15} /> {isAddingCategory ? '품목 복사 중...' : 'ZONE 추가'}
                 </button>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  신규 ZONE 공통 품목 {commonItemTemplates.length}종 자동 등록
+                </span>
+                {addCategoryError && (
+                  <span className="text-xs text-red-600 dark:text-red-400" role="alert">
+                    {addCategoryError}
+                  </span>
+                )}
+                {addCategoryResult && (
+                  <span className="text-xs text-emerald-700 dark:text-emerald-400" role="status">
+                    {addCategoryResult}
+                  </span>
+                )}
               </div>
             )}
 
             {effectiveTabKey === 'name' && drillCategory && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   ref={newNameInputRef}
                   type="text"
@@ -600,12 +898,25 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
                 >
                   <Plus size={15} /> {isAddingSubName ? '등록 중...' : '품목 추가'}
                 </button>
+                <button
+                  onClick={openExistingItemPicker}
+                  disabled={isAddingExistingItems || sourceZoneOptions.length === 0}
+                  className="px-3 py-1.5 text-sm border border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300 font-bold rounded-lg flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="다른 ZONE에 있는 기존 품목을 선택해 현재 ZONE에만 추가합니다."
+                >
+                  <Box size={15} /> 기존 품목 선택 추가
+                </button>
               </div>
             )}
           </div>
           {addSubNameError && (
             <p id="add-sub-name-error" className="px-6 py-2 text-sm text-red-600 bg-red-50 border-b border-red-100" role="alert">
               {addSubNameError}
+            </p>
+          )}
+          {existingItemResult && drillCategory && (
+            <p className="px-6 py-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50/70 dark:bg-emerald-950/20 border-b border-emerald-100 dark:border-emerald-900" role="status">
+              {existingItemResult}
             </p>
           )}
 
@@ -759,15 +1070,55 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-            <button
-              onClick={handleSyncToServer}
-              disabled={isSyncing}
-              className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-2 shadow disabled:opacity-50"
-            >
-              <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
-              {isSyncing ? '동기화 중...' : '서버 즉시 동기화'}
-            </button>
+          <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center gap-4 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex flex-col gap-2 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleSyncToServer}
+                  disabled={isSyncing || isSyncingZoneItems}
+                  className="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-2 shadow disabled:opacity-50 shrink-0"
+                >
+                  <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
+                  {isSyncing ? '동기화 중...' : '서버 즉시 동기화'}
+                </button>
+                <button
+                  onClick={() => {
+                    setZoneSyncResult(null);
+                    setPendingZoneSync(zoneItemSyncPlan);
+                  }}
+                  disabled={
+                    isSyncing ||
+                    isSyncingZoneItems ||
+                    !zoneItemSyncPlan.hasChanges ||
+                    Boolean(zoneItemSyncPlan.validationMessage)
+                  }
+                  className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg flex items-center gap-2 shadow disabled:opacity-50 shrink-0"
+                  title="모든 ZONE에 없는 품목 정의를 현재고 0으로 보충합니다."
+                >
+                  <Layers size={15} className={isSyncingZoneItems ? 'animate-pulse' : ''} />
+                  {isSyncingZoneItems ? '품목 보충 중...' : `공통 품목 동기화 (${zoneItemSyncPlan.totalAdded})`}
+                </button>
+              </div>
+              {zoneItemSyncPlan.validationMessage ? (
+                <span className="text-xs text-red-600 dark:text-red-400" role="alert">
+                  {zoneItemSyncPlan.validationMessage}
+                </span>
+              ) : !zoneItemSyncPlan.hasChanges ? (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  모든 ZONE의 품목 수와 기준정보가 일치합니다.
+                </span>
+              ) : null}
+              {syncResult && (
+                <span className="text-xs text-slate-600 dark:text-slate-300" role="status">
+                  {syncResult}
+                </span>
+              )}
+              {zoneSyncResult && (
+                <span className="text-xs text-slate-600 dark:text-slate-300" role="status">
+                  {zoneSyncResult}
+                </span>
+              )}
+            </div>
             <button
               onClick={onClose}
               className="px-5 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300 font-medium hover:bg-slate-100 dark:hover:bg-slate-700"
@@ -794,6 +1145,218 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
           onConfirm={executeAnalysis}
           onCancel={() => setAnalysis(null)}
         />
+      )}
+      {pendingZoneSync && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="zone-item-sync-title"
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg border border-orange-200 dark:border-orange-900 overflow-hidden">
+            <div className="px-5 py-4 border-b border-orange-200 dark:border-orange-900 bg-orange-50 dark:bg-orange-950/40 text-orange-800 dark:text-orange-200">
+              <h3 id="zone-item-sync-title" className="font-bold">ZONE 공통 품목 동기화 확인</h3>
+            </div>
+            <div className="p-5 space-y-3 text-sm text-slate-700 dark:text-slate-300">
+              <p>
+                {pendingZoneSync.totalAdded > 0 ? (
+                  <>
+                    모든 ZONE에서 사용하는 품목 정의를 맞추기 위해 누락된 품목
+                    <strong className="text-orange-600 dark:text-orange-400"> {pendingZoneSync.totalAdded}개</strong>를 추가합니다.
+                  </>
+                ) : (
+                  '현재고 품목은 이미 ZONE별로 일치합니다. 기준정보의 공통 품목명 목록을 동기화합니다.'
+                )}
+              </p>
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3 space-y-1">
+                {Object.entries(pendingZoneSync.additionsByCategory)
+                  .filter(([, count]) => count > 0)
+                  .map(([category, count]) => (
+                    <div key={category} className="flex justify-between gap-3">
+                      <span>{category}</span>
+                      <span className="font-semibold">
+                        현재 {inventory.filter((item) => item.category === category).length}개
+                        {' → '}{pendingZoneSync.countsByCategory[category]}개 (+{count})
+                      </span>
+                    </div>
+                  ))}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                새 품목은 현재고 0으로 생성하고 기존 품목·재고·수불 이력은 변경하지 않습니다.
+                Excel 복구 원본은 변경하지 않습니다. 실행 전 별도 백업을 권장합니다.
+              </p>
+            </div>
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700 flex justify-between gap-3 bg-slate-50 dark:bg-slate-800/50">
+              <button
+                onClick={() => setPendingZoneSync(null)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-medium"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => { void executeZoneItemSync(); }}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow"
+              >
+                공통 품목 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSubNameScopePrompt && drillCategory && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="master-item-scope-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700">
+              <h3 id="master-item-scope-title" className="font-bold text-slate-900 dark:text-white">
+                다른 대분류에도 품목을 추가할까요?
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                “{newNameValue.trim()}”을(를) {drillCategory} 외 대분류에도 현재고 0으로 등록할지 선택해 주세요.
+              </p>
+            </div>
+            <div className="p-4 flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => setShowSubNameScopePrompt(false)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => { void confirmAddSubName(false); }}
+                className="px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-sm font-semibold text-orange-700 dark:text-orange-300"
+              >
+                {drillCategory}만 추가
+              </button>
+              <button
+                onClick={() => { void confirmAddSubName(true); }}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-sm font-bold text-white"
+              >
+                전체 대분류에 추가
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showExistingItemPicker && drillCategory && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="existing-zone-items-title"
+        >
+          <div className="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <h3 id="existing-zone-items-title" className="font-bold text-slate-900 dark:text-white">
+                {drillCategory}에 기존 품목 선택 추가
+              </h3>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                다른 ZONE의 품목 정의만 복사합니다. 현재고·적정재고는 0으로 시작하고 수불 이력은 복사하지 않습니다.
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  품목 원본 ZONE
+                  <select
+                    value={selectedSourceZone}
+                    onChange={(event) => {
+                      setSourceZone(event.target.value);
+                      setSelectedExistingItemKeys(new Set());
+                      setExistingItemError('');
+                    }}
+                    className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  >
+                    {sourceZoneOptions.map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  품목 검색
+                  <input
+                    value={existingItemSearch}
+                    onChange={(event) => setExistingItemSearch(event.target.value)}
+                    placeholder="품명, 도금, 규격"
+                    className="mt-1 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>대상: {drillCategory}</span>
+                <span>
+                  선택 {selectedExistingItemKeys.size}개 / 추가 가능 {availableExistingItems.length}개
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+                {availableExistingItems.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                    선택한 원본 ZONE에 추가할 수 있는 품목이 없습니다.
+                  </p>
+                ) : (
+                  availableExistingItems.map((item) => {
+                    const key = getItemDefinitionKey(item);
+                    const checked = selectedExistingItemKeys.has(key);
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(event) => {
+                            setSelectedExistingItemKeys((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(key);
+                              else next.delete(key);
+                              return next;
+                            });
+                          }}
+                          className="mt-1 accent-orange-600"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {item.name}
+                          </span>
+                          <span className="block mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            {[item.plating, item.spec].filter(Boolean).join(' · ') || '도금/규격 정보 없음'}
+                            {' · '}{item.unit || 'EA'}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+              {existingItemError && (
+                <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+                  {existingItemError}
+                </p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-between gap-3 bg-slate-50 dark:bg-slate-800/50">
+              <button
+                onClick={() => setShowExistingItemPicker(false)}
+                disabled={isAddingExistingItems}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300 disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => { void handleAddSelectedExistingItems(); }}
+                disabled={isAddingExistingItems || selectedExistingItemKeys.size === 0}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAddingExistingItems ? '추가 중...' : `선택 품목 ${selectedExistingItemKeys.size}개 추가`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

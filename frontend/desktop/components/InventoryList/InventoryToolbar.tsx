@@ -1,10 +1,9 @@
-﻿import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Search,
   Plus,
   Filter,
   FileDown,
-  Printer,
   LayoutTemplate,
   AlertCircle,
   ChevronDown,
@@ -15,7 +14,6 @@ import {
   Calendar,
   History,
   RotateCcw,
-  BarChart2,
   Layers,
   ArrowRightLeft,
 } from 'lucide-react';
@@ -41,12 +39,9 @@ interface InventoryToolbarProps {
   exportYear: number;
   setExportYear: (year: number) => void;
   onOpenSettlement: () => void;
-  onOpenReport: () => void;
   onOpenMonthlyReport: () => void;
   onOpenDBManager: () => void;
   onExportExcel: () => void;
-  onShowStockReport: () => void;
-  onOpenMonthlyUsageReport: () => void;
   onResetLayout: () => void;
   onResetDB: () => void;
   onAdd: () => void;
@@ -54,6 +49,9 @@ interface InventoryToolbarProps {
 
 const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3];
+// Keep these feature branches available for a future toolbar restore.
+const SHOW_LOW_STOCK_FILTER_BUTTON = false;
+const SHOW_CONSOLIDATED_VIEW_BUTTON = false;
 
 const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
   user,
@@ -73,12 +71,9 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
   exportYear,
   setExportYear,
   onOpenSettlement,
-  onOpenReport,
   onOpenMonthlyReport,
   onOpenDBManager,
   onExportExcel,
-  onShowStockReport,
-  onOpenMonthlyUsageReport,
   onResetLayout,
   onResetDB,
   onAdd,
@@ -110,8 +105,8 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
   };
 
   return (
-    <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col xl:flex-row justify-between items-center gap-3 transition-colors shrink-0 bg-slate-50/50 dark:bg-slate-900">
-      <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto z-20">
+    <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col justify-between items-stretch gap-3 transition-colors shrink-0 bg-slate-50/50 dark:bg-slate-900 2xl:flex-row 2xl:items-center">
+      <div className="flex flex-wrap items-center gap-2 w-full z-20 2xl:w-auto">
         {/* Multi-Select ZONE Dropdown */}
         <div className="relative" ref={categoryDropdownRef}>
           <button
@@ -178,33 +173,36 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
           </button>
         )}
 
-        {/* Consolidated Common-Material View Toggle (Cross-ZONE Mixing Check) */}
-        <button
-          onClick={() => setViewMode(viewMode === 'BY_ZONE' ? 'CONSOLIDATED' : 'BY_ZONE')}
-          title="여러 ZONE에 중복 투입되어 작업장에서 혼입될 수 있는 공통 자재의 실물 총재고 합계와 ZONE별 배분량을 대조합니다."
-          className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-bold transition-all shadow-sm whitespace-nowrap ${
-            viewMode === 'CONSOLIDATED'
-              ? 'bg-amber-50 text-amber-800 border-amber-500 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-500 ring-2 ring-amber-500'
-              : 'bg-white text-slate-600 border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          <Layers size={15} className={viewMode === 'CONSOLIDATED' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'} />
-          <span>{viewMode === 'CONSOLIDATED' ? '공통자재 합산뷰 (혼입확인)' : '공통자재 합산보기'}</span>
-        </button>
+        {SHOW_CONSOLIDATED_VIEW_BUTTON && (
+          <button
+            onClick={() => setViewMode(viewMode === 'BY_ZONE' ? 'CONSOLIDATED' : 'BY_ZONE')}
+            title="여러 ZONE에 중복 투입되어 작업장에서 혼입될 수 있는 공통 자재의 실물 총재고 합계와 ZONE별 배분량을 대조합니다."
+            className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-bold transition-all shadow-sm whitespace-nowrap ${
+              viewMode === 'CONSOLIDATED'
+                ? 'bg-amber-50 text-amber-800 border-amber-500 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-500 ring-2 ring-amber-500'
+                : 'bg-white text-slate-600 border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Layers size={15} className={viewMode === 'CONSOLIDATED' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'} />
+            <span>{viewMode === 'CONSOLIDATED' ? '공통자재 합산뷰 (혼입확인)' : '공통자재 합산보기'}</span>
+          </button>
+        )}
 
         {/* Low Stock Filter */}
-        <button
-          onClick={() => setShowOnlyLowStock(!showOnlyLowStock)}
-          className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-black transition-all shadow-sm whitespace-nowrap ${
-            showOnlyLowStock
-              ? 'bg-red-50 text-red-700 border-red-500 dark:bg-red-950/60 dark:text-red-400 dark:border-red-500 ring-2 ring-red-500'
-              : 'bg-white text-slate-600 border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50'
-          }`}
-        >
-          <AlertCircle size={15} className={showOnlyLowStock ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-slate-400'} />
-          <span>{showOnlyLowStock ? `부족 (${filteredCount}건)` : `부족재고 (${lowStockCount}건)`}</span>
-          {showOnlyLowStock && <X size={14} className="ml-1 opacity-70 hover:opacity-100" />}
-        </button>
+        {SHOW_LOW_STOCK_FILTER_BUTTON && (
+          <button
+            onClick={() => setShowOnlyLowStock(!showOnlyLowStock)}
+            className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-black transition-all shadow-sm whitespace-nowrap ${
+              showOnlyLowStock
+                ? 'bg-red-50 text-red-700 border-red-500 dark:bg-red-950/60 dark:text-red-400 dark:border-red-500 ring-2 ring-red-500'
+                : 'bg-white text-slate-600 border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <AlertCircle size={15} className={showOnlyLowStock ? 'text-red-600 dark:text-red-400 animate-pulse' : 'text-slate-400'} />
+            <span>{showOnlyLowStock ? `부족 (${filteredCount}건)` : `부족재고 (${lowStockCount}건)`}</span>
+            {showOnlyLowStock && <X size={14} className="ml-1 opacity-70 hover:opacity-100" />}
+          </button>
+        )}
 
         {/* Search Input */}
         <div className="relative w-full sm:w-64">
@@ -219,30 +217,31 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
         </div>
       </div>
 
-      <div className="flex items-center gap-2 w-full xl:w-auto justify-end overflow-x-auto">
+      <div className="flex flex-nowrap items-center gap-2 w-full min-w-0 max-w-full justify-start overflow-x-auto 2xl:flex-1 2xl:justify-end">
+        <button
+          onClick={onAdd}
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-black shadow-md transition-colors whitespace-nowrap shrink-0"
+        >
+          <Plus size={16} /> 신규 등록
+        </button>
+
         <button
           onClick={onOpenSettlement}
           title="ZONE 작업 완료 후 잔여 재고를 반납 정산(0 마감)하거나 다른 ZONE으로 이관합니다."
-          className="px-3 py-2 text-orange-600 border border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
+          className="px-3 py-2 text-orange-600 border border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap shrink-0"
         >
           <ArrowRightLeft size={15} /> ZONE 반납·정산
         </button>
 
         <button
-          onClick={onOpenReport}
-          className="px-3 py-2 text-teal-600 border border-teal-200 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-800 dark:hover:bg-teal-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
-        >
-          <BarChart2 size={16} /> 분석 리포트
-        </button>
-        <button
           onClick={onOpenMonthlyReport}
-          className="px-3 py-2 text-purple-600 border border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
+          className="px-3 py-2 text-purple-600 border border-purple-200 hover:bg-purple-50 dark:text-purple-400 dark:border-purple-800 dark:hover:bg-purple-900/20 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap shrink-0"
         >
           <Calendar size={16} /> 월별 수불부
         </button>
         <button
           onClick={onOpenDBManager}
-          className="px-3 py-2 text-slate-600 border border-slate-300 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
+          className="px-3 py-2 text-slate-600 border border-slate-300 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap shrink-0"
         >
           <History size={16} /> 백업/롤백
         </button>
@@ -273,19 +272,6 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
         </div>
 
         <button
-          onClick={onShowStockReport}
-          className="px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors border border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
-        >
-          <Printer size={16} /> 재고현황보고서
-        </button>
-        <button
-          onClick={onOpenMonthlyUsageReport}
-          className="px-3 py-2 text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors border border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap"
-        >
-          <Printer size={16} /> 사용현황보고서
-        </button>
-
-        <button
           onClick={onResetLayout}
           className="p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 shadow-sm bg-white dark:bg-slate-800"
           title="레이아웃 초기화"
@@ -303,12 +289,6 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
           </button>
         )}
 
-        <button
-          onClick={onAdd}
-          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-black shadow-md transition-colors whitespace-nowrap"
-        >
-          <Plus size={16} /> 신규 등록
-        </button>
       </div>
     </div>
   );

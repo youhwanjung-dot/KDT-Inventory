@@ -8,6 +8,7 @@ export interface InventoryListProps {
   user: User;
   initialFilterMode?: 'ALL' | 'LOW_STOCK';
   initialCategoryFilter?: string | null;
+  stockReportRequest: number;
   onAdd: () => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -15,8 +16,6 @@ export interface InventoryListProps {
   onOpenDBManager: () => void;
   onTransaction: (item: InventoryItem) => void;
   onOpenMonthlyReport: () => void;
-  onOpenMonthlyUsageReport: () => void;
-  onOpenReport: () => void;
 }
 
 export interface InventoryColWidths {

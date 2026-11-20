@@ -192,38 +192,45 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
     });
     const pageCategories = categories.length > 0 ? categories : [''];
 
-    return pageCategories.map(category => {
+    return pageCategories.flatMap(category => {
       const categoryItems = reportData
         .filter(item => item.category === category)
-        .filter(item => !filterActiveOnly || item.totalIn > 0 || item.totalOut > 0)
-        .slice(0, SLOTS_PER_CATEGORY);
-      const slots: Array<(typeof reportData)[number] | {
-        id: string;
-        category: string;
-        name: string;
-        unit: string;
-        location: string;
-        startStock: number;
-        totalIn: number;
-        totalOut: number;
-        endStock: number;
-      }> = [...categoryItems];
+        .filter(item => !filterActiveOnly || item.totalIn > 0 || item.totalOut > 0);
+      const pageCount = Math.max(1, Math.ceil(categoryItems.length / SLOTS_PER_CATEGORY));
 
-      while (slots.length < SLOTS_PER_CATEGORY) {
-        const slot = slots.length + 1;
-        slots.push({
-          id: `empty-${category}-${slot}`,
-          category,
-          name: '',
-          unit: '',
-          location: '',
-          startStock: 0,
-          totalIn: 0,
-          totalOut: 0,
-          endStock: 0
-        });
-      }
-      return { category, items: slots };
+      return Array.from({ length: pageCount }, (_, pageIndex) => {
+        const pageItems = categoryItems.slice(
+          pageIndex * SLOTS_PER_CATEGORY,
+          (pageIndex + 1) * SLOTS_PER_CATEGORY
+        );
+        const slots: Array<(typeof reportData)[number] | {
+          id: string;
+          category: string;
+          name: string;
+          unit: string;
+          location: string;
+          startStock: number;
+          totalIn: number;
+          totalOut: number;
+          endStock: number;
+        }> = [...pageItems];
+
+        while (slots.length < SLOTS_PER_CATEGORY) {
+          const slot = slots.length + 1;
+          slots.push({
+            id: `empty-${category}-${pageIndex}-${slot}`,
+            category,
+            name: '',
+            unit: '',
+            location: '',
+            startStock: 0,
+            totalIn: 0,
+            totalOut: 0,
+            endStock: 0
+          });
+        }
+        return { category, items: slots, zonePage: pageIndex + 1, zonePageCount: pageCount };
+      });
     });
   }, [items, masterData.categories, categoryOrderMap, reportData, filterActiveOnly]);
 
@@ -337,7 +344,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
         className="flex flex-col my-12 items-center print:block print:w-full print:m-0 print:p-0"
         style={{ gap: `${32 * previewScale}px` }}
       >
-        {pages.map(({ category, items: pageItems }, pageIndex) => {
+        {pages.map(({ category, items: pageItems, zonePage, zonePageCount }, pageIndex) => {
           return (
             <div
               key={pageIndex}
@@ -371,6 +378,9 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                     </div>
                     <div className="text-right">
                       <p className="text-[11px] text-slate-500">출력일자: {new Date().toLocaleDateString()}</p>
+                      {zonePageCount > 1 && (
+                        <p className="text-[11px] text-slate-500">{category} 페이지: {zonePage} / {zonePageCount}</p>
+                      )}
                       <p className="text-[11px] text-slate-500">Page {pageIndex + 1} / {pages.length}</p>
                     </div>
                   </div>
@@ -416,16 +426,16 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
                           <td style={cellStyles.name}>{item.name}</td>
                           <td style={cellStyles.unit}>{item.unit}</td>
                           <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>
-                            {hasItem ? Number(item.startStock).toFixed(1) : ''}
+                            {hasItem ? Math.round(Number(item.startStock) || 0).toLocaleString('ko-KR') : ''}
                           </td>
                           <td style={{ ...cellStyles.stock, color: '#2563eb' }}>
-                            {hasItem && item.totalIn > 0 ? Number(item.totalIn).toFixed(1) : ''}
+                            {hasItem && item.totalIn > 0 ? Math.round(Number(item.totalIn) || 0).toLocaleString('ko-KR') : ''}
                           </td>
                           <td style={{ ...cellStyles.stock, color: '#dc2626' }}>
-                            {hasItem && item.totalOut > 0 ? Number(item.totalOut).toFixed(1) : ''}
+                            {hasItem && item.totalOut > 0 ? Math.round(Number(item.totalOut) || 0).toLocaleString('ko-KR') : ''}
                           </td>
                           <td style={{ ...cellStyles.stock, backgroundColor: '#f8fafc' }}>
-                            {hasItem ? Number(item.endStock).toFixed(1) : ''}
+                            {hasItem ? Math.round(Number(item.endStock) || 0).toLocaleString('ko-KR') : ''}
                           </td>
                           <td style={cellStyles.location}>{item.location}</td>
                         </tr>

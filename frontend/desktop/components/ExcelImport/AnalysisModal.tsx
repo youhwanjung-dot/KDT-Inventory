@@ -1,11 +1,11 @@
-﻿import React from 'react';
+import React, { useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { InventoryItem } from '../../types';
 
 interface AnalysisModalProps {
     previewItems: InventoryItem[];
     currentInventory: InventoryItem[];
-    onConfirm: () => void;
+    onConfirm: (applyAcrossZones: boolean) => void;
     onCancel: () => void;
 }
 
@@ -13,8 +13,10 @@ const makeKdtKey = (it: InventoryItem) =>
     `${(it.category || '').trim().toLowerCase()}|${(it.name || '').trim().toLowerCase()}|${(it.plating || '').trim().toLowerCase()}|${(it.spec || '').trim().toLowerCase()}`;
 
 const AnalysisModal: React.FC<AnalysisModalProps> = ({ previewItems, currentInventory, onConfirm, onCancel }) => {
+    const [applyAcrossZones, setApplyAcrossZones] = useState(false);
     const existingKeys = new Set(currentInventory.map(makeKdtKey));
     const duplicateCount = previewItems.filter(p => existingKeys.has(makeKdtKey(p))).length;
+    const newItemCount = previewItems.length - duplicateCount;
 
     return (
         <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
@@ -47,10 +49,26 @@ const AnalysisModal: React.FC<AnalysisModalProps> = ({ previewItems, currentInve
                         * ZONE + 품명 + 도금 + 규격이 동일한 기존 자재는 현재고 및 정보가 업데이트됩니다.<br />
                         * [확인 및 등록] 시 DB에 즉시 반영됩니다.
                     </p>
+                    {newItemCount > 0 && (
+                        <label className="flex items-start gap-2 rounded-lg border border-orange-200 dark:border-orange-900/60 bg-orange-50/70 dark:bg-orange-950/20 p-3 text-sm text-slate-700 dark:text-slate-300">
+                            <input
+                                type="checkbox"
+                                checked={applyAcrossZones}
+                                onChange={(event) => setApplyAcrossZones(event.target.checked)}
+                                className="mt-0.5 accent-orange-600"
+                            />
+                            <span>
+                                신규 품목 정의를 전체 대분류에 확대 적용
+                                <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                    선택하지 않으면 파일에 지정된 ZONE에만 등록합니다. 확대 적용 시 누락된 ZONE에만 현재고 0으로 추가하며, 기존 품목과 재고는 변경하지 않습니다.
+                                </span>
+                            </span>
+                        </label>
+                    )}
                 </div>
                 <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 bg-slate-50 dark:bg-slate-800/50">
                     <button
-                        onClick={onConfirm}
+                        onClick={() => onConfirm(applyAcrossZones)}
                         className="px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 text-sm font-bold shadow-md transition-colors"
                     >
                         확인 및 등록

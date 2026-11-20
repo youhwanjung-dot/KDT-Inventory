@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { CheckCircle } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { FieldDef } from '../../constants';
@@ -10,7 +10,7 @@ interface StepPreviewProps {
     currentInventory: InventoryItem[];
     isLegacyMode: boolean;
     dbFields: FieldDef[];
-    onConfirm: () => void;
+    onConfirm: (applyAcrossZones: boolean) => void;
     onBack: () => void;
 }
 

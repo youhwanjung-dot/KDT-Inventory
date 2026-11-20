@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { X, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, MasterData } from '../types';
@@ -12,12 +12,48 @@ interface ReportModalProps {
   columnWidths: Record<string, number>;
 }
 
-// User Requirement: Reduced to 35 items per page for better A4 layout (Unified with Monthly Report)
-const ROWS_PER_PAGE = 33;
+const ROWS_PER_PAGE = 40;
+const A3_PAGE_WIDTH_PX = 297 * 96 / 25.4;
+const A3_PAGE_HEIGHT_PX = 420 * 96 / 25.4;
+const inventoryReportPageStyle = `
+  @page inventory-stock-report {
+    size: A3 portrait;
+    margin: 10mm;
+  }
+  @media print {
+    .inventory-stock-preview-sheet {
+      display: contents !important;
+      zoom: 1 !important;
+    }
+    .print-page.inventory-stock-print-page {
+      page: inventory-stock-report;
+      width: 277mm !important;
+      max-width: 277mm !important;
+      height: 400mm !important;
+      max-height: 400mm !important;
+      padding: 10mm !important;
+      box-sizing: border-box !important;
+    }
+  }
+`;
 
 const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, columnWidths }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
+  const [previewScale, setPreviewScale] = useState(0.5);
+
+  useEffect(() => {
+    const updatePreviewScale = () => {
+      const availableWidth = Math.max(0, window.innerWidth - 32);
+      const availableHeight = Math.max(0, window.innerHeight - 120);
+      const scale = Math.min(1, availableWidth / A3_PAGE_WIDTH_PX, availableHeight / A3_PAGE_HEIGHT_PX);
+      setPreviewScale(Math.max(0.1, scale));
+    };
+
+    updatePreviewScale();
+    window.addEventListener('resize', updatePreviewScale);
+    return () => window.removeEventListener('resize', updatePreviewScale);
+  }, []);
 
   // Field Labels State - Reverted to static
   const [labels, setLabels] = useState<Record<string, string>>({});
@@ -37,19 +73,6 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
   }, []);
 
   const getLabel = (key: string, defaultVal: string) => labels[key] || defaultVal;
-  const formatOneDecimal = (value: any) => {
-    if (value === null || value === undefined || value === '') return '';
-    if (typeof value === 'number' && !Number.isNaN(value)) return value.toFixed(1);
-    if (typeof value === 'string') {
-      const trimmed = value.replace(/,/g, '').trim();
-      if (trimmed === '') return '';
-      if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-        const num = Number(trimmed);
-        if (!Number.isNaN(num)) return num.toFixed(1);
-      }
-    }
-    return String(value);
-  };
 
   // Build order maps from masterData prop (Firestore source of truth)
   const categoryOrderMap = useMemo(() => {
@@ -86,11 +109,28 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
     });
   }, [items, categoryOrderMap, nameOrderMap]);
 
-  // Pagination Logic
+  // Pagination Logic - group by ZONE(category), then split each group into chunks of ROWS_PER_PAGE
   const pages = useMemo(() => {
     const chunks: InventoryItem[][] = [];
-    for (let i = 0; i < sortedItems.length; i += ROWS_PER_PAGE) {
-      chunks.push(sortedItems.slice(i, i + ROWS_PER_PAGE));
+    // 1. Group sorted items by category (ZONE boundary never splits across a page)
+    const groups: InventoryItem[][] = [];
+    let currentGroup: InventoryItem[] = [];
+    let currentCategory = '';
+    for (const item of sortedItems) {
+      if (item.category !== currentCategory) {
+        if (currentGroup.length > 0) groups.push(currentGroup);
+        currentCategory = item.category;
+        currentGroup = [];
+      }
+      currentGroup.push(item);
+    }
+    if (currentGroup.length > 0) groups.push(currentGroup);
+
+    // 2. Split each ZONE group into pages of ROWS_PER_PAGE (a large ZONE spans multiple pages)
+    for (const group of groups) {
+      for (let i = 0; i < group.length; i += ROWS_PER_PAGE) {
+        chunks.push(group.slice(i, i + ROWS_PER_PAGE));
+      }
     }
     return chunks;
   }, [sortedItems]);
@@ -98,6 +138,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
   const handlePrint = useReactToPrint({
     contentRef: contentRef,
     documentTitle: '재고현황보고서',
+    pageStyle: inventoryReportPageStyle,
   });
 
   const today = new Date().toLocaleDateString('ko-KR', {
@@ -199,17 +240,37 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
       </div>
 
       {/* Pages Container */}
-      <div ref={contentRef} className="flex flex-col gap-8 my-8 items-center print:block print:w-full print:m-0 print:p-0">
+      <div
+        ref={contentRef}
+        className="flex flex-col my-8 items-center print:block print:w-full print:m-0 print:p-0"
+        style={{ gap: `${32 * previewScale}px` }}
+      >
         {pages.map((pageItems, pageIndex) => {
-          const startIndex = pageIndex * ROWS_PER_PAGE;
+          const startIndex = pages.slice(0, pageIndex).reduce((sum, p) => sum + p.length, 0);
 
           return (
             <div
               key={pageIndex}
-              id={`page-${pageIndex}`}
-              className="print-page bg-white text-slate-900 w-full shadow-2xl relative flex flex-col justify-between mx-auto mb-8 print:mb-0 print:shadow-none"
-              style={{ pageBreakAfter: 'always', padding: '15mm 10mm' }}
+              className="inventory-stock-preview-sheet flex-none bg-white shadow-2xl"
+              style={{
+                width: '297mm',
+                height: '420mm',
+                padding: '10mm',
+                boxSizing: 'border-box',
+                zoom: previewScale,
+              }}
             >
+              <div
+                id={`page-${pageIndex}`}
+                className="print-page inventory-stock-print-page bg-white text-slate-900 w-full h-full relative flex flex-col justify-between mx-auto print:shadow-none"
+                style={{
+                  pageBreakAfter: 'always',
+                  width: '277mm',
+                  height: '400mm',
+                  padding: '10mm',
+                  boxSizing: 'border-box',
+                }}
+              >
               <div className="flex-1">
                 {/* Header */}
                 <div className="mb-2 border-b-2 border-slate-800 pb-2">
@@ -258,7 +319,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                       const stockInt = Math.round(Number(item.currentStock) || 0).toLocaleString('ko-KR');
 
                       return (
-                        <tr key={item.id} style={{ ...rowStyle, height: '25px', backgroundColor: '#ffffff' }}>
+                        <tr key={item.id} style={{ ...rowStyle, height: '33px', backgroundColor: '#ffffff' }}>
                           <td style={cellStyles.no}>{startIndex + i + 1}</td>
 
                           {rowSpan > 0 && (
@@ -287,6 +348,22 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                         </tr>
                       );
                     })}
+                    {Array.from({ length: Math.max(0, ROWS_PER_PAGE - pageItems.length) }).map((_, idx) => (
+                      <tr
+                        key={`empty-${pageIndex}-${idx}`}
+                        style={{ height: '33px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}
+                      >
+                        <td style={cellStyles.no}></td>
+                        <td style={cellStyles.category}></td>
+                        <td style={cellStyles.name}></td>
+                        <td style={cellStyles.spec}></td>
+                        <td style={cellStyles.spec}></td>
+                        <td style={cellStyles.stock}></td>
+                        <td style={cellStyles.unit}></td>
+                        <td style={cellStyles.location}></td>
+                        <td style={cellStyles.note}></td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -298,6 +375,7 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
                   <span>- Page {pageIndex + 1} / {pages.length} -</span>
                 </div>
                 {/* User Requested: Summary section removed */}
+              </div>
               </div>
             </div>
           );

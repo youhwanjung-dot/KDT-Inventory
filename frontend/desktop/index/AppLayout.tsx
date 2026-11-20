@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -13,6 +13,10 @@ import {
   Sun,
   Box,
   BookOpen,
+  FileText,
+  Activity,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 
 import Login from '../components/Login';
@@ -46,25 +50,33 @@ interface AppLayoutProps {
     handleAddItem: () => void;
     handleEditItem: (id: string) => void;
     handleDeleteItem: (id: string) => void;
-    handleSaveItem: (item: InventoryItem) => void;
+    handleSaveItem: (item: InventoryItem, applyAcrossZones?: boolean) => void;
     openTransactionModal: (item: InventoryItem) => void;
     handleTransactionSave: (txData: any) => void;
     handleTransactionUpdate: (oldTx: InventoryTransaction, newTxData: any) => void;
     handleTransactionDelete: (tx: InventoryTransaction) => void;
-    handleExcelImport: (items: InventoryItem[]) => void;
-    handleHistoryImport: (txs: InventoryTransaction[]) => void;
+    handleExcelImport: (items: InventoryItem[], applyAcrossZones: boolean) => void;
+    handleHistoryImport: (
+      txs: InventoryTransaction[],
+      itemsToRegister: InventoryItem[],
+      applyAcrossZones: boolean
+    ) => void;
     handleResetInventoryRequest: () => void;
     handleDBImport: (data: any) => void;
   };
 }
 
 const MENU_ITEMS = [
-  { id: 'DASHBOARD',      label: '대시보드',     icon: LayoutDashboard },
-  { id: 'INVENTORY',      label: '재고 현황',    icon: Package },
-  { id: 'ANALYSIS',       label: '재고 보고서',  icon: BarChart2 },
-  { id: 'IMPORT',         label: '일괄 등록',    icon: FileSpreadsheet },
-  { id: 'HISTORY_IMPORT', label: '수불부 등록',  icon: History },
+  { id: 'DASHBOARD',      label: '대시보드',     icon: LayoutDashboard, adminOnly: false },
+  { id: 'INVENTORY',      label: '재고현황',      icon: Package, adminOnly: false },
+  { id: 'ANALYSIS',       label: '재고분석 보고서', icon: BarChart2, adminOnly: false },
+  { id: 'STOCK_REPORT',   label: '재고현황 보고서', icon: FileText, adminOnly: false },
+  { id: 'USAGE_REPORT',   label: '사용현황 보고서', icon: Activity, adminOnly: false },
+  { id: 'IMPORT',         label: '일괄등록',       icon: FileSpreadsheet, adminOnly: true },
+  { id: 'HISTORY_IMPORT', label: '수불부 등록',    icon: History, adminOnly: true },
 ];
+
+const IDLE_LOGOUT_TIMEOUT_MS = 5 * 60 * 1000;
 
 const getPermissionLabel = (role: string, txPermission?: string): string => {
   if (role === 'admin') return '시스템 관리자';
@@ -79,7 +91,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
     setUser,
     isDarkMode, setIsDarkMode,
     inventory, setInventory,
-    transactions,
+    transactions, setTransactions,
     masterData, setMasterData,
     users, setUsers,
     currentView, setCurrentView,
@@ -104,17 +116,31 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
 
   const [inventoryFilterMode, setInventoryFilterMode] = useState<'ALL' | 'LOW_STOCK'>('ALL');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [stockReportRequest, setStockReportRequest] = useState(0);
+  const [showUsageReportOptions, setShowUsageReportOptions] = useState(false);
+  const [usageReportMode, setUsageReportMode] = useState<'ANNUAL' | 'ZONE'>('ANNUAL');
+  const userRole = user?.role;
 
   useEffect(() => {
     const VIEW_TITLES: Record<string, string> = {
       DASHBOARD: '대시보드 | KDT 자재 재고관리',
-      INVENTORY: '재고 현황 | KDT 자재 재고관리',
-      ANALYSIS: '재고 보고서 | KDT 자재 재고관리',
+      INVENTORY: '재고현황 | KDT 자재 재고관리',
+      ANALYSIS: '재고 분석보고서 | KDT 자재 재고관리',
       IMPORT: '일괄 등록 | KDT 자재 재고관리',
       HISTORY_IMPORT: '수불부 등록 | KDT 자재 재고관리',
     };
     document.title = VIEW_TITLES[currentView] || 'KDT 자재 재고관리 시스템';
   }, [currentView]);
+
+  useEffect(() => {
+    if (
+      userRole &&
+      userRole !== 'admin' &&
+      (currentView === 'IMPORT' || currentView === 'HISTORY_IMPORT')
+    ) {
+      setCurrentView('DASHBOARD');
+    }
+  }, [userRole, currentView, setCurrentView]);
 
   const {
     handleLogin,
@@ -132,6 +158,61 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
     handleResetInventoryRequest,
     handleDBImport,
   } = handlers;
+
+  const logoutHandlerRef = useRef(handleLogout);
+  useEffect(() => {
+    logoutHandlerRef.current = handleLogout;
+  }, [handleLogout]);
+  const userId = user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+
+    let lastActivityAt = Date.now();
+    let timeoutId: number | undefined;
+
+    const checkIdleTimeout = () => {
+      const remaining = IDLE_LOGOUT_TIMEOUT_MS - (Date.now() - lastActivityAt);
+      if (remaining <= 0) {
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        timeoutId = undefined;
+        void logoutHandlerRef.current();
+        return;
+      }
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(checkIdleTimeout, remaining);
+    };
+
+    const recordActivity = () => {
+      lastActivityAt = Date.now();
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(checkIdleTimeout, IDLE_LOGOUT_TIMEOUT_MS);
+    };
+
+    const checkWhenVisible = () => {
+      if (document.visibilityState === 'visible') checkIdleTimeout();
+    };
+
+    timeoutId = window.setTimeout(checkIdleTimeout, IDLE_LOGOUT_TIMEOUT_MS);
+    window.addEventListener('pointermove', recordActivity);
+    window.addEventListener('pointerdown', recordActivity);
+    window.addEventListener('keydown', recordActivity);
+    window.addEventListener('touchstart', recordActivity, { passive: true });
+    window.addEventListener('touchmove', recordActivity, { passive: true });
+    window.addEventListener('wheel', recordActivity, { passive: true });
+    document.addEventListener('visibilitychange', checkWhenVisible);
+
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.removeEventListener('pointermove', recordActivity);
+      window.removeEventListener('pointerdown', recordActivity);
+      window.removeEventListener('keydown', recordActivity);
+      window.removeEventListener('touchstart', recordActivity);
+      window.removeEventListener('touchmove', recordActivity);
+      window.removeEventListener('wheel', recordActivity);
+      document.removeEventListener('visibilitychange', checkWhenVisible);
+    };
+  }, [userId]);
 
   if (!user) {
     return (
@@ -166,19 +247,78 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
-          {MENU_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setCurrentView(item.id as ViewState)}
-              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${currentView === item.id
-                ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-            >
-              <item.icon size={22} className={currentView === item.id ? 'text-white' : 'text-slate-400 group-hover:text-orange-500 transition-colors'} />
-              {isSidebarOpen && <span className="font-medium text-sm">{item.label}</span>}
-            </button>
-          ))}
+          {MENU_ITEMS.filter((item) => !item.adminOnly || user.role === 'admin').map((item) => {
+            const isActive =
+              item.id === 'STOCK_REPORT'
+                ? false
+                : item.id === 'USAGE_REPORT'
+                  ? showUsageReportOptions || showMonthlyUsageReport || showMonthlyReport
+                  : currentView === item.id;
+
+            return (
+              <React.Fragment key={item.id}>
+                <button
+                  onClick={() => {
+                    if (item.id === 'STOCK_REPORT') {
+                      setCurrentView('INVENTORY');
+                      setStockReportRequest((request) => request + 1);
+                    } else if (item.id === 'USAGE_REPORT') {
+                      if (!isSidebarOpen) setIsSidebarOpen(true);
+                      setShowUsageReportOptions((open) => !open);
+                    } else {
+                      setCurrentView(item.id as ViewState);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${isActive
+                    ? 'bg-orange-600 text-white shadow-md shadow-orange-500/20'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  aria-expanded={item.id === 'USAGE_REPORT' ? showUsageReportOptions : undefined}
+                >
+                  <item.icon size={22} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-orange-500 transition-colors'} />
+                  {isSidebarOpen && <span className="font-medium text-sm">{item.label}</span>}
+                  {item.id === 'USAGE_REPORT' && isSidebarOpen && (
+                    showUsageReportOptions
+                      ? <ChevronDown size={16} className="ml-auto" />
+                      : <ChevronRight size={16} className="ml-auto" />
+                  )}
+                </button>
+                {item.id === 'USAGE_REPORT' && showUsageReportOptions && isSidebarOpen && (
+                  <div className="ml-4 border-l border-slate-200 dark:border-slate-700 pl-2 space-y-1">
+                    <button
+                      onClick={() => {
+                        setShowUsageReportOptions(false);
+                        setShowMonthlyReport(true);
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      월간
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUsageReportMode('ANNUAL');
+                        setShowUsageReportOptions(false);
+                        setShowMonthlyUsageReport(true);
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      연간
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUsageReportMode('ZONE');
+                        setShowUsageReportOptions(false);
+                        setShowMonthlyUsageReport(true);
+                      }}
+                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
+                      ZONE
+                    </button>
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
         </nav>
 
         <div className="p-3 border-t border-slate-100 dark:border-slate-800 space-y-1 shrink-0">
@@ -237,8 +377,10 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
         <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 flex items-center justify-between shrink-0 shadow-sm z-10">
           <h1 className="text-lg font-bold text-slate-800 dark:text-slate-100">
             {currentView === 'ANALYSIS'
-              ? '재고 현황 보고서'
-              : MENU_ITEMS.find((i) => i.id === currentView)?.label}
+              ? '재고분석 보고서'
+              : currentView === 'INVENTORY'
+                ? '재고현황'
+                : MENU_ITEMS.find((i) => i.id === currentView)?.label}
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
@@ -274,6 +416,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               user={user}
               initialFilterMode={inventoryFilterMode}
               initialCategoryFilter={selectedCategoryFilter}
+              stockReportRequest={stockReportRequest}
               onAdd={handleAddItem}
               onEdit={handleEditItem}
               onDelete={handleDeleteItem}
@@ -281,18 +424,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               onOpenDBManager={() => setShowDBManager(true)}
               onTransaction={openTransactionModal}
               onOpenMonthlyReport={() => setShowMonthlyReport(true)}
-              onOpenMonthlyUsageReport={() => setShowMonthlyUsageReport(true)}
-              onOpenReport={() => setCurrentView('ANALYSIS')}
             />
           )}
-          {currentView === 'IMPORT' && (
+          {user.role === 'admin' && currentView === 'IMPORT' && (
             <ExcelImport
               onImport={handleExcelImport}
+              onRestore={handleDBImport}
               onCancel={() => setCurrentView('INVENTORY')}
               currentInventory={inventory}
             />
           )}
-          {currentView === 'HISTORY_IMPORT' && (
+          {user.role === 'admin' && currentView === 'HISTORY_IMPORT' && (
             <TransactionHistoryImport
               onImport={handleHistoryImport}
               onCancel={() => setCurrentView('INVENTORY')}
@@ -366,45 +508,105 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
           transactions={transactions}
           masterData={masterData}
           onMasterDataChange={setMasterData}
-          onUpdateInventory={async (newInventory, changedItems, deleteItemIds) => {
+          onUpdateInventory={async (newInventory, changedItems, deleteItemIds, syncTransactionNames) => {
             setInventory(newInventory);
             try {
               const deleteSet = new Set<string>(deleteItemIds ?? []);
               const changedMap = new Map<string, InventoryItem>(
                 (changedItems ?? []).map((item) => [item.id, item])
               );
-              const finalInventory = inventory
+              const finalInventory = newInventory
                 .filter((item) => !deleteSet.has(item.id))
                 .map((item) => changedMap.get(item.id) ?? item);
 
-              const finalTransactions =
-                deleteSet.size > 0
-                  ? transactions.filter((tx) => !deleteSet.has(tx.itemId))
-                  : transactions;
+              const inventoryById = new Map(finalInventory.map((item) => [item.id, item]));
+              let updatedTransactionNames = 0;
+              const finalTransactions = transactions
+                .filter((tx) => !deleteSet.has(tx.itemId))
+                .map((tx) => {
+                  if (!syncTransactionNames) return tx;
+                  const currentItem = inventoryById.get(tx.itemId);
+                  if (!currentItem || tx.itemName === currentItem.name) return tx;
+                  updatedTransactionNames++;
+                  return { ...tx, itemName: currentItem.name };
+                });
 
-              const apiBase =
-                window.location.port === '5173'
-                  ? `http://${window.location.hostname}:3500/api`
-                  : '/api';
-              const res = await fetch(`${apiBase}/migration`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inventory: finalInventory, transactions: finalTransactions }),
-              });
-              if (!res.ok) throw new Error(`저장 실패 (${res.status})`);
+              await api.migrateData({ inventory: finalInventory, transactions: finalTransactions });
+              setTransactions(finalTransactions);
               ActionLogger.log('Master Data Saved (batch)', {
                 deleted: deleteSet.size,
                 changed: (changedItems ?? []).length,
                 txRemoved: transactions.length - finalTransactions.length,
+                txNamesUpdated: updatedTransactionNames,
               });
+              return updatedTransactionNames;
             } catch (e) {
               console.error('Failed to save master data:', e);
               setAlertModal({ title: '저장 실패', message: '기준정보 저장 실패: ' + e });
+              return null;
             }
+          }}
+          onNormalizeZoneItems={async (normalizedInventory, normalizedMasterData) => {
+            try {
+              const result = await api.migrateData({
+                inventory: normalizedInventory,
+                transactions,
+                masterData: normalizedMasterData,
+              });
+              if (
+                result.inventoryCount !== normalizedInventory.length ||
+                result.transactionCount !== transactions.length
+              ) {
+                throw new Error('서버 저장 건수가 요청한 데이터와 일치하지 않습니다.');
+              }
+              setInventory(normalizedInventory);
+              setMasterData(normalizedMasterData);
+              ActionLogger.log('ZONE Shared Item Sync Saved', {
+                inventoryCount: normalizedInventory.length,
+                transactionCount: transactions.length,
+              });
+              return true;
+            } catch (error) {
+              console.error('Failed to normalize shared ZONE items:', error);
+              setAlertModal({ title: 'ZONE 품목 동기화 실패', message: '공통 품목 동기화에 실패했습니다: ' + error });
+              return false;
+            }
+          }}
+          onCreateZoneItems={async (category, zoneItems, nextMasterData) => {
+            await api.saveMasterData(nextMasterData);
+            const results = await Promise.allSettled(zoneItems.map((item) => api.saveItem(item)));
+            const savedItems = zoneItems.filter((_, index) => results[index].status === 'fulfilled');
+            const failedItemCount = zoneItems.length - savedItems.length;
+
+            setInventory((prev) => {
+              const existingIds = new Set(prev.map((item) => item.id));
+              return [...prev, ...savedItems.filter((item) => !existingIds.has(item.id))];
+            });
+            setMasterData(nextMasterData);
+            ActionLogger.log('ZONE Items Provisioned', {
+              category,
+              requested: zoneItems.length,
+              saved: savedItems.length,
+              failed: failedItemCount,
+            });
+            return {
+              masterData: nextMasterData,
+              savedItemCount: savedItems.length,
+              failedItemCount,
+            };
           }}
           onCreateItems={async (categories, name) => {
             const missingItems = categories
-              .filter((category) => !inventory.some((item) => item.category === category && item.name === name))
+              .filter(
+                (category) =>
+                  !inventory.some(
+                    (item) =>
+                      item.category === category &&
+                      item.name === name &&
+                      !String(item.plating || '').trim() &&
+                      !String(item.spec || '').trim()
+                  )
+              )
               .map((category): InventoryItem => {
                 const zoneMeta = Object.values(masterData.zoneMeta || {}).find(
                   (meta) => meta.displayName === category
@@ -439,10 +641,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
             const savedItems = missingItems.filter((_, index) => results[index].status === 'fulfilled');
             if (savedItems.length > 0) {
               setInventory((prev) => {
-                const existingKeys = new Set(prev.map((item) => `${item.category}\u0000${item.name}`));
+                const makeKey = (item: InventoryItem) =>
+                  [item.category, item.name, item.plating, item.spec]
+                    .map((value) => String(value || '').trim().toLocaleLowerCase())
+                    .join('\u0000');
+                const existingKeys = new Set(prev.map(makeKey));
                 return [
                   ...prev,
-                  ...savedItems.filter((item) => !existingKeys.has(`${item.category}\u0000${item.name}`)),
+                  ...savedItems.filter((item) => !existingKeys.has(makeKey(item))),
                 ];
               });
               ActionLogger.log('Auto-created shared items from Master Data', {
@@ -477,6 +683,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
           items={inventory}
           transactions={transactions}
           masterData={masterData}
+          viewMode={usageReportMode}
           onClose={() => setShowMonthlyUsageReport(false)}
         />
       )}

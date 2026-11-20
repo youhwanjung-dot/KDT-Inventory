@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Check, Layers, Trash2, SlidersHorizontal } from 'lucide-react';
 import { InventoryItem, MasterData } from '../types';
 import { formatStockWithUnit, roundToInt } from '../utils/formatters';
@@ -7,12 +7,13 @@ interface StockFormProps {
   item?: InventoryItem;
   inventory: InventoryItem[];
   masterData: MasterData;
-  onSave: (item: InventoryItem) => void;
+  onSave: (item: InventoryItem, applyAcrossZones?: boolean) => void;
   onDelete: (id: string) => void;
   onCancel: () => void;
 }
 
 const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSave, onDelete, onCancel }) => {
+  const [pendingNewItem, setPendingNewItem] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
     category: '',
     zoneId: '',
@@ -145,7 +146,11 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
       supplier: String(formData.supplier || '').trim(),
       note: String(formData.note || '').trim(),
     };
-    onSave(newItem);
+    if (item) {
+      onSave(newItem, false);
+    } else {
+      setPendingNewItem(newItem);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -414,6 +419,59 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
           </div>
         </div>
       </div>
+      {pendingNewItem && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-item-scope-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700">
+              <h3 id="new-item-scope-title" className="font-bold text-slate-900 dark:text-white">
+                다른 대분류에도 품목을 등록할까요?
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                신규 품목 “{pendingNewItem.name}”을(를) {pendingNewItem.category} 외 대분류에도 현재고 0으로 추가할지 선택해 주세요.
+              </p>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                기존 품목, 재고 및 수불 이력은 변경되지 않습니다.
+              </p>
+            </div>
+            <div className="p-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingNewItem(null)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const newItem = pendingNewItem;
+                  setPendingNewItem(null);
+                  onSave(newItem, false);
+                }}
+                className="px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-sm font-semibold text-orange-700 dark:text-orange-300"
+              >
+                이 대분류만 등록
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const newItem = pendingNewItem;
+                  setPendingNewItem(null);
+                  onSave(newItem, true);
+                }}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-sm font-bold text-white"
+              >
+                전체 대분류에 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
