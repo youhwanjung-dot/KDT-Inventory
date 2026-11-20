@@ -1,7 +1,7 @@
 # Task — KDT-Inventory 개발 진행 현황
 
 > 기준 문서: [`KDT_작업계획서.md`](./KDT_작업계획서.md) / [`Blueprint.md`](./Blueprint.md)
-> 현재 버전: **Ver 1.3.38** (공통 품목 초기화 및 ZONE별 선택 추가 · Hosting 배포 대기)
+> 현재 버전: **Ver 1.3.38** (공통 품목 초기화 및 ZONE별 선택 추가 · Hosting 배포 완료)
 
 ## Phase 0: 기획 및 요구사항 확정 (완료)
 - [x] `Asan-Inventory_3400` 아키텍처·스키마·엑셀 구조 분석
@@ -249,7 +249,7 @@
 - [x] `npm run typecheck`, `npm run build`, 수정 파일 ESLint 검증 (오류 0건; 기존 Hook 의존성 경고 1건)
 - [x] `backup/Ver1.3.38` 로컬 소스 백업 생성
 - [ ] UI에서 공통 교집합 초기화 및 AAA 선택 추가를 확인
-- [ ] Firebase Hosting 배포 및 운영 적용은 별도 승인 전 미실행
+- [x] Firebase Hosting Ver 1.3.38 배포 완료 (사용자 확인)
+- [ ] 운영 DB 공통 품목 동기화 실행은 사전 백업 및 미리보기 검토 후 진행
 - [x] 관리자 동기화 경로 확인: 좌측 메뉴 하단 `ZONE·기준정보 관리` → 모달 하단 `공통 품목 동기화`
 - [x] Excel 내보내기·DB 초기화·원본 복구는 기존 ZONE 품목 차이를 정규화하지 않음을 확인
-- [ ] 운영 앱에 동기화 기능이 있는지 확인 후, 사전 백업과 동기화 미리보기 검토를 거쳐 기존 품목 합집합을 정규화

@@ -178,5 +178,5 @@ KDT-Inventory_3500/
 | **Phase 1** | 기반 이식 | Firebase `kdt-inventory` 웹앱·서울 설정, Asan 재고 코어 선별 이식, Functions v2 + KDT 스키마/6명 사용자, 빌드 스크립트 2종 | 완료 (Ver 1.0.0) |
 | **Phase 2** | KDT 핵심 UI·권한 | `UserManagerModal`, `TransactionModal`, `StockForm`, `InventoryList/`(50슬롯·연도캘린더·공통자재 합산·ZONE 정산), `MasterDataManagerModal/`(ZONE 별칭·생산수량) | 완료 (Ver 1.1.0) |
 | **Phase 3** | 데이터 시드 & 입고 파서 | 초기 32품목/33건 데이터 시드, 입고시트 전용 파서, 대시보드 정수 EA 최적화 | 완료 (Ver 1.2.0) |
-| **Phase 4** | 배포·운영·보고서·Excel | 클라우드 배포, 운영 DB 초기 적재·백업 복구, 보고서 A3 세로 및 40행 통일, ZONE 40개 초과 Excel 자동 확장, 품목·거래·기준정보 원본 보존 및 전용 DB 복구, 공통 품목 정합성 동기화, 신규 품목 ZONE 적용 범위 선택, 공통 품목 교집합 초기화 및 기존 품목 선택 추가 | 코드 및 오프라인 검증 완료 (Ver 1.3.0 ~ Ver 1.3.38; 운영 동기화·복구·배포 대기) |
+| **Phase 4** | 배포·운영·보고서·Excel | 클라우드 배포, 운영 DB 초기 적재·백업 복구, 보고서 A3 세로 및 40행 통일, ZONE 40개 초과 Excel 자동 확장, 품목·거래·기준정보 원본 보존 및 전용 DB 복구, 공통 품목 정합성 동기화, 신규 품목 ZONE 적용 범위 선택, 공통 품목 교집합 초기화 및 기존 품목 선택 추가 | Ver 1.3.38 Hosting 배포 완료; 운영 동기화·복구 확인 대기 |
 | **2차 과제** | 자동 소요량 산출 | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 (DB 스키마 선반영 완료) | 예정 (Ver 2.0.0) |

@@ -150,7 +150,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | Hosting URL | asannoble-inventory.web.app | `https://kdt-inventory.web.app/login` |
 | 로컬 포트 | 3400 / 3410 | **`3500`** (단일 포트) |
 | 빌드 스크립트 | `_Local_run_inventory.bat` / `_Cloud_run_inventory.bat` | **`_Local_run_KDT.bat`** / **`_Cloud_run_KDT.bat`** (영문 ASCII 표준) |
-| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.3.38`**, Hosting 배포 대기) |
+| 시작 버전 | Ver 5.34.0 | **`Ver 1.0.0`** (현재 **`Ver 1.3.38`**, Hosting 배포 완료) |
 
 > MODE Flags(`VERSION_MODE`, `MOCKUP_MODE`, `STORAGE_MODE`)는 [`Blueprint.md`](./Blueprint.md) 섹션 1에서 일괄 관리합니다.
 
@@ -158,7 +158,7 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 
 ## 7. 단계별 추진 일정 및 실시간 모니터링 (Master Roadmap)
 
-> **실시간 상태**: **현재 Ver 1.3.38; 신규 품목의 전 ZONE 확대는 명시 선택. 새 대분류에는 기존 ZONE 모두에 공통인 품목 정의만 현재고·적정재고 0으로 자동 초기화하고, 단일 ZONE 품목은 검색·선택해 해당 ZONE에만 추가. 기존 재고·거래 이력은 복사하거나 수정하지 않음. 정확 DB 복구는 원본 그대로 반영. 타입검사·프로덕션 빌드 통과, 수정 파일 ESLint 오류 없음(기존 Hook 경고 1건). 운영 Firebase 변경 및 Hosting 배포는 미실행** (최종 갱신: `2026-11-22`)
+> **실시간 상태**: **현재 Ver 1.3.38; Hosting 배포 완료(사용자 확인). 신규 품목의 전 ZONE 확대는 명시 선택. 새 대분류에는 기존 ZONE 모두에 공통인 품목 정의만 현재고·적정재고 0으로 자동 초기화하고, 단일 ZONE 품목은 검색·선택해 해당 ZONE에만 추가. 기존 재고·거래 이력은 복사하거나 수정하지 않음. 정확 DB 복구는 원본 그대로 반영. 타입검사·프로덕션 빌드 통과, 수정 파일 ESLint 오류 없음(기존 Hook 경고 1건). 운영 DB 공통 품목 동기화는 미실행** (최종 갱신: `2026-11-22`)
 > **운영 접속 URL**: **`https://kdt-inventory.web.app/login`** (서울 리전 `asia-northeast3` Cloud Functions v2 + Firestore 실시간 연동 완료)
 > **버전별 세부 개정 이력**: [`Revision_history.md`](./Revision_history.md) 참조
 
@@ -168,5 +168,5 @@ KDT 제조 현장의 **ZONE(대분류) 단위 자재 입출고 및 재고관리 
 | **Phase 1** | Firebase `kdt-inventory` 웹앱·서울 설정, Asan 재고 코어 선별 이식, Functions v2 서울 리전 + KDT 스키마/6명 사용자 백엔드, 빌드 스크립트 2종, 클린빌드 0에러, `backup/Ver1.0.0`, GitHub 1차 푸시 | **완료** | Ver 1.0.0 |
 | **Phase 2** | **KDT 핵심 UI·권한·Rule 5 리팩토링 + 50슬롯/연도캘린더/혼입합산·정산**: `UserManagerModal`, `TransactionModal`, `StockForm`, `InventoryList/`, `MasterDataManagerModal/`, `TransactionHistoryImport`, `ReportModal` | **완료** | Ver 1.1.0 |
 | **Phase 3** | **초기 32품목/33건 데이터 시드 & 입고시트 전용 파서 & 대시보드**: `_user/KDT-Inventory.xlsx` 데이터 시드, `LegacyParser.ts` 입고시트 파서, 대시보드 정수 EA 최적화 | **완료** | Ver 1.2.0 |
-| **Phase 4** | **배포·운영·보고서·Excel 안정화 (Ver 1.3.0 ~ Ver 1.3.38)**: 클라우드 배포, 운영 DB 적재·백업 복구, 전체 보고서 A3 세로 및 40행 페이지 통일, ZONE 40개 초과 Excel 시트/Main 자동 확장, 품목·거래·기준정보 원본 탭과 정확한 DB 복구 경로, 공통 품목 정합성 명시적 동기화, 신규 품목 ZONE 적용 범위 선택, 공통 품목 교집합 초기화와 기존 품목 선택 추가 | **코드 및 오프라인 검증 완료; 운영 동기화·복구·Hosting 배포 대기** | Ver 1.3.38 |
+| **Phase 4** | **배포·운영·보고서·Excel 안정화 (Ver 1.3.0 ~ Ver 1.3.38)**: 클라우드 배포, 운영 DB 적재·백업 복구, 전체 보고서 A3 세로 및 40행 페이지 통일, ZONE 40개 초과 Excel 시트/Main 자동 확장, 품목·거래·기준정보 원본 탭과 정확한 DB 복구 경로, 공통 품목 정합성 명시적 동기화, 신규 품목 ZONE 적용 범위 선택, 공통 품목 교집합 초기화와 기존 품목 선택 추가 | **Ver 1.3.38 Hosting 배포 완료; 운영 동기화·복구 확인 대기** | Ver 1.3.38 |
 | **2차 과제** | ZONE 목표 생산수량 × `qtyPerProduct`(1대당 소요량) 기반 필요/부족 자재 자동 산출 (DB 스키마 선반영 완료) | 예정 | Ver 2.0.0 |
