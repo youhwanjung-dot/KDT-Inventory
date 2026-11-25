@@ -71,6 +71,7 @@ export function useAppHandlers(state: AppState) {
     setAlertModal,
     setConfirmModal,
     setProgressModal,
+    realtimePausedRef,
   } = state;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -109,15 +110,22 @@ export function useAppHandlers(state: AppState) {
     setShowStockForm(true);
   };
 
-  const handleEditItem = (id: string) => {
-    const item = inventory.find((i) => i.id === id);
-    if (item) {
-      setEditingItem(item);
-      setShowStockForm(true);
+  const handleEditItem = (target: string | InventoryItem) => {
+    if (typeof target === 'string') {
+      const item = inventory.find((i) => i.id === target);
+      if (item) {
+        setEditingItem(item);
+        setShowStockForm(true);
+      }
+      return;
     }
+    setEditingItem(target);
+    setShowStockForm(true);
   };
 
   const handleDeleteItem = async (id: string) => {
+    const target = inventory.find((i) => i.id === id);
+    if (!target) return;
     setConfirmModal({
       title: '품목 삭제',
       message: '정말로 이 항목을 삭제하시겠습니까?\n관련된 입출고 이력은 유지됩니다.',
@@ -129,6 +137,32 @@ export function useAppHandlers(state: AppState) {
         try {
           await api.deleteItem(id);
           ActionLogger.log('Inventory Item Deleted (DB)', { id });
+
+          // 삭제된 품목명이 콤보박스(사용이력)에 남지 않도록 namesByCategory·nameOrder 정리
+          const remaining = inventory.filter((i) => i.id !== id);
+          const stillInCategory = remaining.some(
+            (i) => i.category === target.category && i.name === target.name
+          );
+          const stillAnywhere = remaining.some((i) => i.name === target.name);
+
+          const newNamesByCategory = { ...masterData.namesByCategory };
+          if (!stillInCategory) {
+            const list = newNamesByCategory[target.category] || [];
+            newNamesByCategory[target.category] = list.filter((n) => n !== target.name);
+          }
+          const newNameOrder = stillAnywhere
+            ? masterData.nameOrder
+            : masterData.nameOrder.filter((n) => n !== target.name);
+
+          // 이름이나 정렬 순서에 변경이 있을 때만 masterData 저장
+          if (!stillInCategory || !stillAnywhere) {
+            await api.saveMasterData({
+              categories: masterData.categories,
+              namesByCategory: newNamesByCategory,
+              nameOrder: newNameOrder,
+              zoneMeta: masterData.zoneMeta || {},
+            });
+          }
         } catch (e) {
           setAlertModal({ title: '삭제 실패', message: '삭제 실패: ' + e });
         }
@@ -138,6 +172,35 @@ export function useAppHandlers(state: AppState) {
 
   const handleSaveItem = async (item: InventoryItem, applyAcrossZones = false) => {
     try {
+      const itemKey = (candidate: InventoryItem) =>
+        [candidate.name, candidate.plating, candidate.spec]
+          .map((part) => String(part || '').trim().toLocaleLowerCase())
+          .join('\u0000');
+
+      // id가 비어있는 경우(createDraftItem 등), inventory에서 같은 대분류·품명·도금·규격의
+      // 기존 품목을 찾아 id를 채워넣어 중복 문서 생성을 방지한다.
+      if (!item.id) {
+        const matchKey = itemKey(item);
+        const existing = inventory.find(
+          (i) => i.category === item.category && itemKey(i) === matchKey
+        );
+        if (existing) {
+          item = { ...item, id: existing.id };
+        } else {
+          // id 채우기에 실패한 경우(진짜 신규), 같은 대분류에 동일 정의 품목이 있으면 중복 경고
+          const duplicate = inventory.find(
+            (i) => i.category === item.category && itemKey(i) === matchKey
+          );
+          if (duplicate) {
+            setAlertModal({
+              title: '중복 품목 존재',
+              message: `같은 대분류에 동일한 품목이 이미 존재합니다: "${duplicate.name}"${duplicate.spec ? ` (규격: ${duplicate.spec})` : ''}${duplicate.plating ? ` (도금: ${duplicate.plating})` : ''}. 기존 품목을 수정해 주세요.`,
+            });
+            return;
+          }
+        }
+      }
+
       await api.saveItem(item);
       setShowStockForm(false);
       ActionLogger.log('Inventory Item Saved (DB)', { name: item.name });
@@ -146,13 +209,55 @@ export function useAppHandlers(state: AppState) {
       const allCategories = Array.from(
         new Set([...masterData.categories, ...inventory.map((existing) => existing.category), item.category].filter(Boolean))
       );
+      const today = new Date().toISOString().slice(0, 10);
 
-      if (isNew && applyAcrossZones) {
-        const today = new Date().toISOString().slice(0, 10);
-        const itemKey = (candidate: InventoryItem) =>
-          [candidate.name, candidate.plating, candidate.spec]
-            .map((part) => String(part || '').trim().toLocaleLowerCase())
-            .join('\u0000');
+      // 수정 시 원본 품목 정의(품명+도금+규격)를 기준으로 공통 품목 여부를 판단
+      const original = isNew ? undefined : inventory.find((i) => i.id === item.id);
+      const originalKey = itemKey(original || item);
+      const relatedItems = original
+        ? inventory.filter((existing) => existing.id !== item.id && itemKey(existing) === originalKey)
+        : [];
+
+      if (applyAcrossZones && relatedItems.length > 0) {
+        // 공통 품목: 다른 대분류의 동일 품목 '정보'만 갱신 (재고·수불 이력은 유지)
+        const propagated: InventoryItem[] = relatedItems.map((existing) => ({
+          ...existing,
+          name: item.name,
+          plating: item.plating,
+          spec: item.spec,
+          unit: item.unit,
+          eaPerUnit: item.eaPerUnit,
+          qtyPerProduct: item.qtyPerProduct,
+          setGroup: item.setGroup,
+          pkgUnit: item.pkgUnit,
+          pkgType: item.pkgType,
+          outerPkg: item.outerPkg,
+          location: item.location,
+          supplier: item.supplier,
+          note: item.note,
+          lastUpdated: today,
+        }));
+        const results = await Promise.allSettled(propagated.map((it) => api.saveItem(it)));
+        const savedItems = propagated.filter((_, idx) => results[idx].status === 'fulfilled');
+        if (savedItems.length > 0) {
+          const savedById = new Map(savedItems.map((it) => [it.id, it]));
+          setInventory((prev) => prev.map((p) => savedById.get(p.id) ?? p));
+          ActionLogger.log('Propagated shared item definition across ZONEs', {
+            name: item.name,
+            categories: savedItems.map((it) => it.category),
+          });
+        }
+        const failed = propagated
+          .filter((_, idx) => results[idx].status === 'rejected')
+          .map((it) => it.category);
+        if (failed.length > 0) {
+          setAlertModal({
+            title: '일부 ZONE 저장 실패',
+            message: `다음 ZONE의 품목 정보 저장에 실패했습니다: ${failed.join(', ')}`,
+          });
+        }
+      } else if (applyAcrossZones && (isNew || relatedItems.length === 0)) {
+        // 신규 품목 또는 단일 품목 확대: 누락 ZONE에 현재고 0 품목 생성
         const missingCategories = allCategories.filter(
           (cat) =>
             cat !== item.category &&
@@ -209,11 +314,25 @@ export function useAppHandlers(state: AppState) {
         }
       }
 
-      const newCategories = allCategories;
       const newNamesByCategory = { ...masterData.namesByCategory };
       const newNameOrder = [...masterData.nameOrder];
-      const nameCategories = applyAcrossZones ? newCategories : [item.category];
-      for (const cat of nameCategories) {
+      // 품명이 변경된 수정 건은 관련 대분류의 기존 품명을 새 품명으로 치환
+      if (original && original.name !== item.name) {
+        const renameTargets = new Set([item.category, ...relatedItems.map((it) => it.category)]);
+        for (const cat of renameTargets) {
+          const list = newNamesByCategory[cat];
+          if (!list) continue;
+          newNamesByCategory[cat] = Array.from(
+            new Set(list.map((n) => (n === original.name ? item.name : n)))
+          );
+        }
+      }
+      const expandedCategories = applyAcrossZones
+        ? isNew || relatedItems.length === 0
+          ? allCategories
+          : Array.from(new Set([item.category, ...relatedItems.map((it) => it.category)]))
+        : [item.category];
+      for (const cat of expandedCategories) {
         const existing = newNamesByCategory[cat] || [];
         if (!existing.includes(item.name)) {
           newNamesByCategory[cat] = [...existing, item.name];
@@ -223,13 +342,128 @@ export function useAppHandlers(state: AppState) {
         newNameOrder.push(item.name);
       }
       await api.saveMasterData({
-        categories: newCategories,
+        categories: allCategories,
         namesByCategory: newNamesByCategory,
         nameOrder: newNameOrder,
         zoneMeta: masterData.zoneMeta || {},
       });
     } catch (e) {
       setAlertModal({ title: '저장 실패', message: '저장 실패: ' + e });
+    }
+  };
+
+  // 중복 품목 병합: survivorId 품목으로 mergedIds 품목들의 재고·트랜잭션을 합침
+  const handleMergeDuplicates = async (survivorId: string, mergedIds: string[]) => {
+    // Migration 진행 중 onSnapshot이 중간 상태로 덮어쓰는 것을 방지
+    realtimePausedRef.current = true;
+    try {
+      const survivor = inventory.find((i) => i.id === survivorId);
+      if (!survivor) throw new Error('생존 품목을 찾을 수 없습니다.');
+      const mergedItems = inventory.filter((i) => mergedIds.includes(i.id));
+      if (mergedItems.length === 0) return;
+
+      const totalStockToAdd = mergedItems.reduce((sum, m) => sum + (m.currentStock || 0), 0);
+      const maxSafeStock = Math.max(survivor.safeStock || 0, ...mergedItems.map((m) => m.safeStock || 0));
+      const firstLocation = survivor.location || mergedItems.find((m) => m.location)?.location || '';
+      const firstSupplier = survivor.supplier || mergedItems.find((m) => m.supplier)?.supplier || '';
+      const mergedNames = mergedItems.map((m) => m.name).join(', ');
+      const mergedNote = `${survivor.note || ''}${survivor.note ? ' / ' : ''}중복병합(${new Date().toISOString().slice(0, 10)}): ${mergedNames}`.trim();
+
+      const updatedSurvivor: InventoryItem = {
+        ...survivor,
+        currentStock: (survivor.currentStock || 0) + totalStockToAdd,
+        safeStock: maxSafeStock,
+        location: firstLocation,
+        supplier: firstSupplier,
+        note: mergedNote,
+        lastUpdated: new Date().toISOString().slice(0, 10),
+      };
+
+      // 트랜잭션 이전: mergedIds → survivorId (itemName 스냅샷은 유지)
+      const mergedSet = new Set(mergedIds);
+      const updatedTransactions = transactions.map((tx) =>
+        mergedSet.has(tx.itemId) ? { ...tx, itemId: survivorId } : tx
+      );
+
+      const updatedInventory = [
+        updatedSurvivor,
+        ...inventory.filter((i) => i.id !== survivorId && !mergedSet.has(i.id)),
+      ];
+
+      setProgressModal({
+        title: '중복품목 병합',
+        message: makeProgressMsg('DB에 반영 중입니다. 잠시만 기다려 주세요.'),
+      });
+
+      const result = await api.migrateData({ inventory: updatedInventory, transactions: updatedTransactions });
+
+      // 서버 저장 건수 검증
+      if (
+        result.inventoryCount !== updatedInventory.length ||
+        result.transactionCount !== updatedTransactions.length
+      ) {
+        throw new Error(
+          `서버 저장 건수 불일치 (품목 ${result.inventoryCount}/${updatedInventory.length}, 거래 ${result.transactionCount}/${updatedTransactions.length})`
+        );
+      }
+
+      setInventory(updatedInventory);
+      setTransactions(updatedTransactions);
+
+      ActionLogger.log('Duplicate Items Merged', {
+        survivorId,
+        survivorName: survivor.name,
+        mergedCount: mergedItems.length,
+        totalStockAdded: totalStockToAdd,
+      });
+      setProgressModal(null);
+      setSuccessMessage(`${mergedItems.length}개 품목이 "${survivor.name}"에 병합되었습니다.`);
+      setShowSuccessModal(true);
+    } catch (e) {
+      console.error('Merge failed:', e);
+      setProgressModal(null);
+      setAlertModal({ title: '병합 실패', message: '중복 품목 병합에 실패했습니다: ' + e });
+    } finally {
+      // Firestore 동기화가 완료된 후 실시간 리스너 재개 (지연을 주어 중간 상태 수신 방지)
+      setTimeout(() => {
+        realtimePausedRef.current = false;
+      }, 1500);
+    }
+  };
+
+  // 중복 품목 삭제: 트랜잭션 이력은 유지
+  const handleDeleteDuplicates = async (ids: string[]) => {
+    realtimePausedRef.current = true;
+    try {
+      const deleteSet = new Set(ids);
+      const updatedInventory = inventory.filter((i) => !deleteSet.has(i.id));
+
+      setProgressModal({
+        title: '중복품목 삭제',
+        message: makeProgressMsg('DB에 반영 중입니다. 잠시만 기다려 주세요.'),
+      });
+
+      const result = await api.migrateData({ inventory: updatedInventory, transactions });
+
+      if (result.inventoryCount !== updatedInventory.length) {
+        throw new Error(
+          `서버 저장 건수 불일치 (품목 ${result.inventoryCount}/${updatedInventory.length})`
+        );
+      }
+
+      setInventory(updatedInventory);
+      setProgressModal(null);
+      ActionLogger.log('Duplicate Items Deleted', { count: ids.length });
+      setSuccessMessage(`${ids.length}개 중복 품목이 삭제되었습니다.`);
+      setShowSuccessModal(true);
+    } catch (e) {
+      console.error('Delete duplicates failed:', e);
+      setProgressModal(null);
+      setAlertModal({ title: '삭제 실패', message: '중복 품목 삭제에 실패했습니다: ' + e });
+    } finally {
+      setTimeout(() => {
+        realtimePausedRef.current = false;
+      }, 1500);
     }
   };
 
@@ -309,6 +543,7 @@ export function useAppHandlers(state: AppState) {
     importedItems: InventoryItem[],
     applyAcrossZones = false
   ) => {
+    realtimePausedRef.current = true;
     try {
       await runWithProgress(
         '일괄등록 진행',
@@ -482,6 +717,10 @@ export function useAppHandlers(state: AppState) {
       );
     } catch (e) {
       setAlertModal({ title: '일괄 등록 오류', message: '일괄 등록 중 오류: ' + e });
+    } finally {
+      setTimeout(() => {
+        realtimePausedRef.current = false;
+      }, 1500);
     }
   };
 
@@ -665,6 +904,7 @@ export function useAppHandlers(state: AppState) {
         cancelLabel: '취소',
         onConfirm: async () => {
           setConfirmModal(null);
+          realtimePausedRef.current = true;
           try {
             await runWithProgress(
               '수불부 등록 진행',
@@ -771,6 +1011,10 @@ export function useAppHandlers(state: AppState) {
           } catch (e) {
             console.error(e);
             setAlertModal({ title: '이력 등록 오류', message: '이력 등록 중 오류: ' + e });
+          } finally {
+            setTimeout(() => {
+              realtimePausedRef.current = false;
+            }, 1500);
           }
         },
       });
@@ -851,6 +1095,7 @@ export function useAppHandlers(state: AppState) {
     transactions: InventoryTransaction[];
     masterData?: MasterData;
   }) => {
+    realtimePausedRef.current = true;
     try {
       await runWithProgress(
         'DB 전체 복구',
@@ -882,6 +1127,10 @@ export function useAppHandlers(state: AppState) {
       );
     } catch (e) {
       setAlertModal({ title: '복원 실패', message: '복원 실패: ' + e });
+    } finally {
+      setTimeout(() => {
+        realtimePausedRef.current = false;
+      }, 1500);
     }
   };
 
@@ -892,6 +1141,8 @@ export function useAppHandlers(state: AppState) {
     handleEditItem,
     handleDeleteItem,
     handleSaveItem,
+    handleMergeDuplicates,
+    handleDeleteDuplicates,
     openTransactionModal,
     handleTransactionSave,
     handleTransactionUpdate,

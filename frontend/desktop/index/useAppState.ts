@@ -3,7 +3,7 @@
  * 전체 앱 전역 State (useState) 및 유틸 함수 모음
  * 기존 index.tsx 에서 분리
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { InventoryItem, InventoryTransaction, User, ViewState, MasterData } from '../types';
 import { INITIAL_USERS, SESSION_USER_KEY, SESSION_VIEW_KEY } from '../constants';
 import { roundToInt } from '../utils/formatters';
@@ -124,6 +124,9 @@ export interface AppState {
   showMasterDataManager: boolean;
   setShowMasterDataManager: React.Dispatch<React.SetStateAction<boolean>>;
 
+  showDuplicateItemManager: boolean;
+  setShowDuplicateItemManager: React.Dispatch<React.SetStateAction<boolean>>;
+
   showMonthlyReport: boolean;
   setShowMonthlyReport: React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -170,6 +173,9 @@ export interface AppState {
   setProgressModal: React.Dispatch<
     React.SetStateAction<{ title: string; message: React.ReactNode } | null>
   >;
+
+  // Migration 진행 중 onSnapshot 리스너가 로컬 상태를 덮어쓰지 않도록 억제하는 플래그
+  realtimePausedRef: React.MutableRefObject<boolean>;
 }
 
 export function useAppState(): AppState {
@@ -238,6 +244,7 @@ export function useAppState(): AppState {
   const [showDBManager, setShowDBManager] = useState(false);
   const [showUserManager, setShowUserManager] = useState(false);
   const [showMasterDataManager, setShowMasterDataManager] = useState(false);
+  const [showDuplicateItemManager, setShowDuplicateItemManager] = useState(false);
   const [showMonthlyReport, setShowMonthlyReport] = useState(false);
   const [showMonthlyUsageReport, setShowMonthlyUsageReport] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -263,6 +270,9 @@ export function useAppState(): AppState {
     message: React.ReactNode;
   } | null>(null);
 
+  // Migration 진행 중 실시간 리스너 억제 (onSnapshot이 중간 상태로 덮어쓰는 것 방지)
+  const realtimePausedRef = useRef(false);
+
   return {
     user, setUser,
     isDarkMode, setIsDarkMode,
@@ -279,6 +289,7 @@ export function useAppState(): AppState {
     showDBManager, setShowDBManager,
     showUserManager, setShowUserManager,
     showMasterDataManager, setShowMasterDataManager,
+    showDuplicateItemManager, setShowDuplicateItemManager,
     showMonthlyReport, setShowMonthlyReport,
     showMonthlyUsageReport, setShowMonthlyUsageReport,
     showLogoutConfirm, setShowLogoutConfirm,
@@ -288,5 +299,6 @@ export function useAppState(): AppState {
     alertModal, setAlertModal,
     confirmModal, setConfirmModal,
     progressModal, setProgressModal,
+    realtimePausedRef,
   };
 }

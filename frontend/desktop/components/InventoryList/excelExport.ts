@@ -472,7 +472,7 @@ export async function exportInventoryToExcel({
     { col: 5, value: '도금', width: 9 },
     { col: 6, value: '규격', width: 13 },
     { col: 7, value: '단위/환산', width: 14 },
-    { col: 8, value: '현재고(EA)', width: 14 },
+    { col: 8, value: '현재고', width: 14 },
     { col: 9, value: '보관위치', width: 14 },
     { col: 10, value: '1대당소요', width: 10 },
     { col: 11, value: '비고', width: 32 },
@@ -641,7 +641,7 @@ export async function exportInventoryToExcel({
   addSourceSheet(
     'DB_품목원본',
     '품목 원본 데이터 (DB 복구용)',
-    ['ID', 'ZONE', '품명', '도금', '규격', '현재고(EA)', '단위', '원본 JSON'],
+    ['ID', 'ZONE', '품명', '도금', '규격', '현재고', '단위', '원본 JSON'],
     items.map((item) => ({
       visible: [
         item.id,

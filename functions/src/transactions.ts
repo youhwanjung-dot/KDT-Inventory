@@ -90,34 +90,38 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
 
       const updates = req.body;
       const txRef = db.collection(TX_COLLECTION).doc(txId);
-      const txDoc = await txRef.get();
 
-      if (!txDoc.exists) {
-        res.status(404).json({ error: 'Transaction not found' });
-        return;
-      }
+      let netDelta = 0;
 
-      const oldTx = txDoc.data()!;
-      const newTx = { ...oldTx, ...updates, id: txId, quantity: toInt(updates.quantity ?? oldTx.quantity) };
-
-      const oldDelta = (oldTx.type === 'IN' ? 1 : -1) * toInt(oldTx.quantity);
-      const newDelta = (newTx.type === 'IN' ? 1 : -1) * toInt(newTx.quantity);
-      const netDelta = newDelta - oldDelta;
-
-      if (netDelta !== 0) {
-        const invRef = db.collection(INV_COLLECTION).doc(newTx.itemId);
-        const invDoc = await invRef.get();
-        if (invDoc.exists) {
-          const currentStock = toInt(invDoc.data()!.currentStock) + netDelta;
-          await invRef.update({
-            currentStock,
-            lastUpdated: newTx.date || new Date().toISOString().slice(0, 10),
-          });
-          newTx.currentStockSnapshot = currentStock;
+      await db.runTransaction(async (transaction: any) => {
+        const txDoc = await transaction.get(txRef);
+        if (!txDoc.exists) {
+          throw Object.assign(new Error('Transaction not found'), { status: 404 });
         }
-      }
 
-      await txRef.set(newTx, { merge: true });
+        const oldTx = txDoc.data()!;
+        const newTx = { ...oldTx, ...updates, id: txId, quantity: toInt(updates.quantity ?? oldTx.quantity) };
+
+        const oldDelta = (oldTx.type === 'IN' ? 1 : -1) * toInt(oldTx.quantity);
+        const newDelta = (newTx.type === 'IN' ? 1 : -1) * toInt(newTx.quantity);
+        netDelta = newDelta - oldDelta;
+
+        if (netDelta !== 0) {
+          const invRef = db.collection(INV_COLLECTION).doc(newTx.itemId);
+          const invDoc = await transaction.get(invRef);
+          if (invDoc.exists) {
+            const currentStock = toInt(invDoc.data()!.currentStock) + netDelta;
+            transaction.update(invRef, {
+              currentStock,
+              lastUpdated: newTx.date || new Date().toISOString().slice(0, 10),
+            });
+            newTx.currentStockSnapshot = currentStock;
+          }
+        }
+
+        transaction.set(txRef, newTx, { merge: true });
+      });
+
       logger.info('KDT transaction updated', { txId, netDelta });
       res.json({ message: 'ok' });
       return;
@@ -132,54 +136,53 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
         return;
       }
 
+      // 트랜잭션 내에서는 where 쿼리를 사용할 수 없으므로 밖에서 대상 ref 확정
       let txRef = db.collection(TX_COLLECTION).doc(txId);
-      let txDoc = await txRef.get();
-
-      if (!txDoc.exists) {
+      const directDoc = await txRef.get();
+      if (!directDoc.exists) {
         const querySnap = await db.collection(TX_COLLECTION).where('id', '==', txId).limit(1).get();
-        if (!querySnap.empty) {
-          txRef = querySnap.docs[0].ref as any;
-          txDoc = querySnap.docs[0];
+        if (querySnap.empty) {
+          res.status(404).json({ error: 'Transaction not found' });
+          return;
         }
+        txRef = querySnap.docs[0].ref;
       }
 
-      if (!txDoc.exists) {
-        res.status(404).json({ error: 'Transaction not found' });
-        return;
-      }
+      await db.runTransaction(async (transaction: any) => {
+        const txDoc = await transaction.get(txRef);
+        if (!txDoc.exists) {
+          throw Object.assign(new Error('Transaction not found'), { status: 404 });
+        }
 
-      const tx = txDoc.data()!;
-      const revertDelta = tx.type === 'IN' ? -toInt(tx.quantity) : toInt(tx.quantity);
+        const tx = txDoc.data()!;
+        const revertDelta = tx.type === 'IN' ? -toInt(tx.quantity) : toInt(tx.quantity);
 
-      if (tx.itemId) {
-        const invRef = db.collection(INV_COLLECTION).doc(tx.itemId);
-        const invDoc = await invRef.get();
-        if (invDoc.exists) {
-          const currentStock = toInt(invDoc.data()!.currentStock) + revertDelta;
-          await invRef.update({
-            currentStock,
-            lastUpdated: new Date().toISOString().slice(0, 10),
-          });
-        } else {
-          const invQuery = await db.collection(INV_COLLECTION).where('id', '==', tx.itemId).limit(1).get();
-          if (!invQuery.empty) {
-            const currentStock = toInt(invQuery.docs[0].data().currentStock) + revertDelta;
-            await invQuery.docs[0].ref.update({
+        if (tx.itemId) {
+          const invRef = db.collection(INV_COLLECTION).doc(tx.itemId);
+          const invDoc = await transaction.get(invRef);
+          if (invDoc.exists) {
+            const currentStock = toInt(invDoc.data()!.currentStock) + revertDelta;
+            transaction.update(invRef, {
               currentStock,
               lastUpdated: new Date().toISOString().slice(0, 10),
             });
           }
         }
-      }
 
-      await txRef.delete();
+        transaction.delete(txRef);
+      });
+
       logger.info('KDT transaction deleted', { txId });
       res.json({ message: 'ok' });
       return;
     }
 
     res.status(405).json({ error: 'Method not allowed' });
-  } catch (error) {
+  } catch (error: any) {
+    if (error && error.status === 404) {
+      res.status(404).json({ error: 'Transaction not found' });
+      return;
+    }
     logger.error('Transaction error', error);
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   APP_VERSION,
   APP_VERSION_STORAGE_KEY,
@@ -26,6 +26,7 @@ export function useAppEffects(state: AppState) {
     setMasterData,
     setUsers,
     setAlertModal,
+    realtimePausedRef,
   } = state;
 
   // Dark mode sync
@@ -81,14 +82,18 @@ export function useAppEffects(state: AppState) {
 
     // Cloud (Firestore) real-time listeners
     const unsubInventory = subscribeInventory((items) => {
+      // Migration 진행 중에는 onSnapshot이 중간 상태로 로컬 상태를 덮어쓰지 않도록 억제
+      if (realtimePausedRef.current) return;
       setInventory(normalizeInventory(items));
     });
 
     const unsubTransactions = subscribeTransactions((txs) => {
+      if (realtimePausedRef.current) return;
       setTransactions(normalizeTransactions(txs));
     });
 
     const unsubMasterData = subscribeMasterData((md) => {
+      if (realtimePausedRef.current) return;
       setMasterData({
         categories: md.categories,
         namesByCategory: md.namesByCategory,
@@ -111,7 +116,9 @@ export function useAppEffects(state: AppState) {
     };
   }, []);
 
-  // Session check (every 30s + on window focus)
+  // Session check (every 30s) + window focus sync (data refresh)
+  const lastFocusSyncRef = useRef(0);
+
   useEffect(() => {
     if (!user) return;
 
@@ -137,8 +144,33 @@ export function useAppEffects(state: AppState) {
       }
     };
 
+    // Window focus 시 최신 데이터 강제 재조회 (노트북-PC 동기화 시차 해소)
+    const refreshDataOnFocus = async () => {
+      if (MOCKUP_MODE || STORAGE_MODE === 'Local') return;
+      // Migration 진행 중이면 스킵
+      if (realtimePausedRef.current) return;
+      // 너무 잦은 호출 방지 (최소 3초 간격)
+      const now = Date.now();
+      if (now - lastFocusSyncRef.current < 3000) return;
+      lastFocusSyncRef.current = now;
+
+      try {
+        const [items, txs] = await Promise.all([
+          api.getInventory(),
+          api.getTransactions(),
+        ]);
+        setInventory(normalizeInventory(items));
+        setTransactions(normalizeTransactions(txs));
+      } catch (error) {
+        console.error('[Focus Sync] data refresh failed:', error);
+      }
+    };
+
     const intervalId = setInterval(checkSession, 30000);
-    const handleFocus = () => checkSession();
+    const handleFocus = () => {
+      checkSession();
+      refreshDataOnFocus();
+    };
     window.addEventListener('focus', handleFocus);
 
     return () => {

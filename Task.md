@@ -1,7 +1,7 @@
 # Task — KDT-Inventory 개발 진행 현황
 
 > 기준 문서: [`KDT_작업계획서.md`](./KDT_작업계획서.md) / [`Blueprint.md`](./Blueprint.md)
-> 현재 버전: **Ver 1.3.38** (공통 품목 초기화 및 ZONE별 선택 추가 · Hosting 배포 완료)
+> 현재 버전: **Ver 1.4.7** (다중 사용자 동시 작업 DB 정합성 안전장치: 이중 로그인 방지 + 수불이력 트랜잭션화 · Functions 재배포 완료)
 
 ## Phase 0: 기획 및 요구사항 확정 (완료)
 - [x] `Asan-Inventory_3400` 아키텍처·스키마·엑셀 구조 분석
@@ -253,3 +253,34 @@
 - [ ] 운영 DB 공통 품목 동기화 실행은 사전 백업 및 미리보기 검토 후 진행
 - [x] 관리자 동기화 경로 확인: 좌측 메뉴 하단 `ZONE·기준정보 관리` → 모달 하단 `공통 품목 동기화`
 - [x] Excel 내보내기·DB 초기화·원본 복구는 기존 ZONE 품목 차이를 정규화하지 않음을 확인
+
+## 연간 사용현황 ZONE 통합 (로컬 검증 완료 — Ver 1.3.39)
+- [x] ANNUAL 보고서에서 모든 ZONE의 출고량만 품목별·월별로 합산
+- [x] 집계 키는 `품명+도금+규격`으로 하고 ZONE은 제외; 서로 다른 도금·규격은 별도 행으로 유지
+- [x] 현재 재고 품목과 선택 연도 거래 이력만 남은 품목을 함께 표시
+- [x] 정수 EA 표시, A3 세로 페이지당 40행 및 빈 슬롯 패딩 적용
+- [x] ZONE 모드의 기존 선택 대분류 입고·출고·기초·기말 집계 유지
+- [x] `npm run typecheck`, `npm run build`, 수정 파일 ESLint 통과
+- [x] `Version.json`, `Revision_history.md`, `Blueprint.md`, `Task.md` 갱신
+- [ ] Firebase Hosting 배포 및 실제 출력 확인
+
+## 사용현황·월별 수불부 역할 분리 (로컬 검증 완료 — Ver 1.3.40)
+- [x] 사이드바 월간을 상단 수불부 재사용에서 별도 사용현황 보고서 모드로 분리
+- [x] 월간은 전체 ZONE의 선택월 품목별 출고량, 연간은 전체 ZONE의 월별 출고량으로 통합
+- [x] ZONE별은 선택 연도·ZONE·시작월~종료월의 품목별 누적 출고량만 표시
+- [x] 사용현황은 `품명+도금+규격`으로 집계하고 A3 세로 40행 페이지 규칙 유지
+- [x] 상단 월별 수불부는 기존 ZONE별 기초·입고·출고·기말재고 보고서로 유지
+- [x] `npm run typecheck`, `npm run build`, 수정 파일 ESLint 통과
+- [x] `Version.json`, `Revision_history.md`, `Blueprint.md`, `Task.md`, `KDT_작업계획서.md` 갱신
+- [ ] Firebase Hosting 배포 및 브라우저·실제 인쇄 확인
+
+## 월간·ZONE 사용현황 재고 흐름 포함 (로컬 검증 완료 — Ver 1.3.41)
+- [x] 전체 ZONE 통합 월간 보고서에 품목별 기초재고·입고·출고·기말재고 포함
+- [x] 선택 ZONE 기간 보고서에 동일한 재고 흐름 집계 적용
+- [x] 과거 기초재고 계산을 상단 월별 수불부의 재고이월·거래 역산 규칙과 일치시킴
+- [x] 통합 월간은 대분류 `전체 ZONE`, 여러 장소가 있으면 `ZONE별 상이` 표시
+- [x] 연간은 제한된 A3 공간을 고려해 월별 소모량 전용 양식을 유지
+- [x] A3 세로 40행 규격 및 기존 사용자 설정 필드 라벨 유지
+- [x] `npm run typecheck`, `npm run build`, 수정 파일 ESLint 통과
+- [x] `Version.json`, `Revision_history.md`, `Blueprint.md`, `Task.md`, `KDT_작업계획서.md` 갱신
+- [ ] Firebase Hosting 배포 및 실제 브라우저·인쇄 확인

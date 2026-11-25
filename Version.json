@@ -1,7 +1,1 @@
-{
-  "version": "1.3.38",
-  "VERSION_MODE": "1.3.38",
-  "MOCKUP_MODE": false,
-  "STORAGE_MODE": "Cloud",
-  "comment": "Seed new ZONEs with common items and allow selected item imports."
-}
+{"version": "1.4.7", "VERSION_MODE": "1.4.7", "MOCKUP_MODE": false, "STORAGE_MODE": "Cloud", "comment": "Concurrency safety: prevent duplicate login (activeToken in users doc) and wrap transaction PUT/DELETE in Firestore runTransaction to avoid lost updates on currentStock."}

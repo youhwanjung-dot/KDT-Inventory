@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Check, Layers, Trash2, SlidersHorizontal } from 'lucide-react';
 import { InventoryItem, MasterData } from '../types';
-import { formatStockWithUnit, roundToInt } from '../utils/formatters';
+import { formatStockWithUnit, normalizeName, roundToInt } from '../utils/formatters';
 
 interface StockFormProps {
   item?: InventoryItem;
@@ -12,8 +12,21 @@ interface StockFormProps {
   onCancel: () => void;
 }
 
+// 품목 식별 기준: 품명+도금+규격 조합
+const getDefinitionKey = (candidate: Pick<InventoryItem, 'name' | 'plating' | 'spec'>): string =>
+  [candidate.name, candidate.plating, candidate.spec]
+    .map((part) => String(part || '').trim().toLocaleLowerCase())
+    .join('\u0000');
+
 const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSave, onDelete, onCancel }) => {
   const [pendingNewItem, setPendingNewItem] = useState<InventoryItem | null>(null);
+  const [pendingEditScope, setPendingEditScope] = useState<{
+    item: InventoryItem;
+    relatedCategories: string[];
+    isCommon: boolean;
+  } | null>(null);
+  const [nameCorrectedFrom, setNameCorrectedFrom] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
     category: '',
     zoneId: '',
@@ -96,6 +109,45 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
     return Array.from(new Set([...existing, ...defaults])).sort();
   }, [inventory]);
 
+  // 선택된 ZONE 내 기존 품목의 정규화된 이름 → 실제 품명 매핑 (중복 검증 및 자동 보정용)
+  const existingNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    const currentCat = formData.category?.trim();
+    inventory
+      .filter((i) => !currentCat || i.category === currentCat)
+      .forEach((i) => {
+        const key = normalizeName(i.name);
+        if (key && !map.has(key)) map.set(key, i.name);
+      });
+    return map;
+  }, [inventory, formData.category]);
+
+  // 이미 등록된 재고 품목을 수정하는지 여부 (신규 등록·기준정보 프리필과 구분)
+  const isEdit = !!item && inventory.some((i) => i.id === item.id);
+
+  // 확대 적용 시 영향을 줄 수 있는 타 대분류 목록 (자기 대분류 제외)
+  const expandTargetCategories = useMemo(() => {
+    const cats = Array.from(
+      new Set(
+        [...(masterData.categories || []), ...inventory.map((i) => i.category), item?.category || ''].filter(Boolean)
+      )
+    );
+    return cats.filter((c) => c !== item?.category);
+  }, [masterData.categories, inventory, item]);
+
+  // 원본 품목과 동일한 품명+도금+규격 정의를 가진 타 대분류 (공통 품목 판별)
+  const relatedItemCategories = useMemo(() => {
+    if (!item) return [];
+    const key = getDefinitionKey(item);
+    return Array.from(
+      new Set(
+        inventory
+          .filter((i) => i.id !== item.id && getDefinitionKey(i) === key)
+          .map((i) => i.category)
+      )
+    );
+  }, [item, inventory]);
+
   useEffect(() => {
     if (item) {
       setFormData({
@@ -118,10 +170,34 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     const categoryValue = String(formData.category || '').trim();
     const nameValue = String(formData.name || '').trim();
+    const specValue = String(formData.spec || '').trim();
+    const platingValue = String(formData.plating || '').trim();
     const unitVal = String(formData.unit || 'EA').trim().toUpperCase();
     const eaPerUnitVal = unitVal === 'EA' ? 1 : Math.max(1, roundToInt(formData.eaPerUnit, 1));
+
+    // 중복 검증: ZONE + 품명(정규화) + 규격 + 도금
+    // 규격/도금이 비어있는 경우 와일드카드로 처리 (어떤 값과도 일치)
+    const normalizedName = normalizeName(nameValue);
+    const duplicate = inventory.find((existing) => {
+      if (item && existing.id === item.id) return false; // 수정 시 자기 자신 제외
+      if (existing.category !== categoryValue) return false;
+      if (normalizeName(existing.name) !== normalizedName) return false;
+      const existingSpec = String(existing.spec || '').trim();
+      const existingPlating = String(existing.plating || '').trim();
+      const specMatch = !existingSpec || !specValue || existingSpec === specValue;
+      const platingMatch = !existingPlating || !platingValue || existingPlating === platingValue;
+      return specMatch && platingMatch;
+    });
+
+    if (duplicate) {
+      setSubmitError(
+        `동일한 품목이 이미 존재합니다: "${duplicate.name}"${duplicate.spec ? ` (규격: ${duplicate.spec})` : ''}${duplicate.plating ? ` (도금: ${duplicate.plating})` : ''}. 기존 품목을 수정해 주세요.`
+      );
+      return;
+    }
 
     const newItem: InventoryItem = {
       id: item?.id || `INV-${Date.now()}`,
@@ -129,8 +205,8 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
       category: categoryValue,
       zoneId: resolveZoneId(categoryValue),
       name: nameValue,
-      plating: String(formData.plating || '').trim(),
-      spec: String(formData.spec || '').trim(),
+      plating: platingValue,
+      spec: specValue,
       unit: unitVal,
       eaPerUnit: eaPerUnitVal,
       qtyPerProduct: Number(formData.qtyPerProduct) || 0,
@@ -146,16 +222,44 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
       supplier: String(formData.supplier || '').trim(),
       note: String(formData.note || '').trim(),
     };
-    if (item) {
-      onSave(newItem, false);
-    } else {
-      setPendingNewItem(newItem);
+    if (isEdit) {
+      // 수정 시에도 확대 적용 여부를 확인한다.
+      // 확대 대상 대분류가 없으면 즉시 저장.
+      if (expandTargetCategories.length === 0) {
+        onSave(newItem, false);
+        return;
+      }
+      setPendingEditScope({
+        item: newItem,
+        relatedCategories: relatedItemCategories,
+        isCommon: relatedItemCategories.length > 0,
+      });
+      return;
     }
+    setPendingNewItem(newItem);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const numericFields = new Set(['currentStock', 'safeStock', 'eaPerUnit', 'qtyPerProduct']);
+
+    if (name === 'category') {
+      setNameCorrectedFrom(null);
+      setSubmitError(null);
+    }
+
+    if (name === 'name') {
+      const normalized = normalizeName(value);
+      const existing = existingNameMap.get(normalized);
+      if (existing && existing !== value.trim()) {
+        // 동일 품목이 존재하면 기존 정확한 품명으로 자동 보정
+        setNameCorrectedFrom(value);
+        setFormData((prev) => ({ ...prev, name: existing }));
+        return;
+      }
+      setNameCorrectedFrom(null);
+    }
+
     setFormData((prev) => ({
       ...prev,
       [name]: numericFields.has(name) ? (value === '' ? '' : Number(value)) : value,
@@ -206,12 +310,12 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 p-4 animate-fade-in backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-[100] p-4 animate-fade-in backdrop-blur-sm">
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[92vh] transition-colors border border-slate-200 dark:border-slate-800">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900 rounded-t-xl shrink-0">
           <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-            {item ? '자재 상세 정보 수정' : '신규 자재 등록'}
+            {isEdit ? '자재 상세 정보 수정' : '신규 자재 등록'}
           </h2>
           <button
             onClick={onCancel}
@@ -230,6 +334,16 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
               {renderCombobox('category', 'ZONE (대분류)', uniqueCategories, '예: ZONE16_Plus, ZONE18', true)}
               {renderCombobox('name', '품명 (소분류)', uniqueNames, '예: 육각쎔스볼트, 평와셔', true)}
             </div>
+            {nameCorrectedFrom && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 -mt-2">
+                “{nameCorrectedFrom}”은(는) 기존 품명 “{formData.name}”과 동일한 품목으로 자동 보정되었습니다.
+              </p>
+            )}
+            {submitError && (
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-sm text-red-700 dark:text-red-300">
+                {submitError}
+              </div>
+            )}
 
             {/* Plating & Spec */}
             <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200/70 dark:border-slate-800">
@@ -247,7 +361,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
                 <label htmlFor="currentStock" className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  현재고 (EA 정수)<span className="text-red-500 ml-0.5">*</span>
+                  현재고<span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <input
                   id="currentStock"
@@ -389,7 +503,7 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
         {/* Footer */}
         <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex justify-between gap-3 rounded-b-xl bg-white dark:bg-slate-900 shrink-0">
           <div>
-            {item && (
+            {isEdit && (
               <button
                 type="button"
                 onClick={handleDelete}
@@ -467,6 +581,79 @@ const StockForm: React.FC<StockFormProps> = ({ item, inventory, masterData, onSa
                 className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-sm font-bold text-white"
               >
                 전체 대분류에 등록
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingEditScope && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-item-scope-title"
+        >
+          <div className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+            <div className="p-5 border-b border-slate-200 dark:border-slate-700">
+              <h3 id="edit-item-scope-title" className="font-bold text-slate-900 dark:text-white">
+                {pendingEditScope.isCommon ? '공통 품목 수정 — 영향 범위 확인' : '다른 대분류에도 적용할까요?'}
+              </h3>
+              {pendingEditScope.isCommon ? (
+                <>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    “{pendingEditScope.item.name}” 품목은 다음 대분류에 공통 등록되어 있습니다. 확대 적용 시 아래 대분류의 품목 정보가 함께 변경됩니다.
+                  </p>
+                  <ul className="mt-2 text-sm text-orange-700 dark:text-orange-300 list-disc list-inside space-y-0.5">
+                    {pendingEditScope.relatedCategories.map((cat) => (
+                      <li key={cat}>{cat}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    각 대분류의 수불 이력과 재고현황은 변경되지 않으며, 품목 정보만 갱신됩니다.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                    “{pendingEditScope.item.name}” 품목은 현재 {pendingEditScope.item.category}에만 등록되어 있습니다. 전체 대분류에 확대 적용하면 나머지 대분류에 현재고 0으로 품목이 추가됩니다.
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    기존 품목, 재고 및 수불 이력은 변경되지 않습니다.
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="p-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingEditScope(null)}
+                className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-700 dark:text-slate-300"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const edited = pendingEditScope.item;
+                  setPendingEditScope(null);
+                  onSave(edited, false);
+                }}
+                className="px-4 py-2 rounded-lg border border-orange-300 dark:border-orange-700 text-sm font-semibold text-orange-700 dark:text-orange-300"
+              >
+                이 대분류만 수정
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const edited = pendingEditScope.item;
+                  setPendingEditScope(null);
+                  onSave(edited, true);
+                }}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-sm font-bold text-white"
+              >
+                {pendingEditScope.isCommon
+                  ? `전체 대분류에 반영 (${pendingEditScope.relatedCategories.length + 1}개)`
+                  : '전체 대분류에 확대'}
               </button>
             </div>
           </div>

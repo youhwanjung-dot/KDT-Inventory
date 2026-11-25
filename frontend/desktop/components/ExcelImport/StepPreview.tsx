@@ -47,7 +47,7 @@ const StepPreview: React.FC<StepPreviewProps> = ({
                             <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('name', '품명 (소분류)')}</th>
                             <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('plating', '도금')}</th>
                             <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('spec', '규격')}</th>
-                            <th className="px-3 py-2 border-b dark:border-slate-700 font-bold bg-slate-100 dark:bg-slate-700/50 text-right">{getLabel('currentStock', '현재고(EA)')}</th>
+                            <th className="px-3 py-2 border-b dark:border-slate-700 font-bold bg-slate-100 dark:bg-slate-700/50 text-right">{getLabel('currentStock', '현재고')}</th>
                             <th className="px-3 py-2 border-b dark:border-slate-700 text-center">{getLabel('unit', '단위')}</th>
                             <th className="px-3 py-2 border-b dark:border-slate-700">{getLabel('note', '비고')}</th>
                         </tr>

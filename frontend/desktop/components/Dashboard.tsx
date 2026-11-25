@@ -96,21 +96,27 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
       let unused = 0;
 
       items.forEach(item => {
-        const stats = item3MonthStats.get(item.id);
-        const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
-        const safe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : Number(item.safeStock ?? 1);
+        const safe = Number(item.safeStock ?? 0);
         const current = Number(item.currentStock ?? 0);
 
         const has6M = item6MonthStats.has(item.id);
 
         if (hasTxHistory && !has6M) {
           unused++;
-        } else if (current >= safe) {
-          normal++;
-        } else if (current >= safe * 0.5) {
-          warning++;
+        } else if (safe > 0) {
+          if (current >= safe) {
+            normal++;
+          } else if (current >= safe * 0.5) {
+            warning++;
+          } else {
+            danger++;
+          }
         } else {
-          danger++;
+          if (current > 0) {
+            normal++;
+          } else {
+            danger++;
+          }
         }
       });
 
@@ -150,8 +156,9 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
         const totalOut3M = stats ? stats.totalOut : 0;
         const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
 
-        const calculatedSafe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : Number(item.safeStock ?? 1);
+        const safeStock = Number(item.safeStock ?? 0);
         const current = roundToOneDecimal(item.currentStock ?? 0);
+        const calculatedSafe = safeStock;
         const shortage = roundToOneDecimal(calculatedSafe - current);
         const ratio = calculatedSafe > 0 ? Math.min(100, Math.max(0, Math.round((current / calculatedSafe) * 100))) : 0;
 
@@ -164,8 +171,8 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
           hasRecentActivity,
           totalOut3M,
           monthlyAvgOut,
-          isDanger: current < calculatedSafe * 0.5,
-          isLow: current < calculatedSafe,
+          isDanger: safeStock > 0 ? current < safeStock * 0.5 : current === 0,
+          isLow: safeStock > 0 ? current < safeStock : current === 0,
         };
       })
       .filter(item => {
@@ -204,10 +211,10 @@ const Dashboard: React.FC<DashboardProps> = ({ items, transactions = [], isDarkM
     return items.filter(item => {
       const stats = item3MonthStats.get(item.id) || item3MonthStats.get(item.name);
       const hasRecentActivity = stats ? stats.hasActivity : false;
-      const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
-      const calculatedSafe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : Number(item.safeStock ?? 1);
+      const safeStock = Number(item.safeStock ?? 0);
+      const current = Number(item.currentStock ?? 0);
 
-      const isLow = (item.currentStock ?? 0) < calculatedSafe;
+      const isLow = safeStock > 0 ? current < safeStock : current === 0;
       if (!isLow) return false;
       if (hasTxHistory && !hasRecentActivity) return false;
       return true;

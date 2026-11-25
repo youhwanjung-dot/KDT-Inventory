@@ -49,16 +49,18 @@ export const login = onRequest({ cors: true }, async (req, res) => {
           ...(matchedUser.email && { email: matchedUser.email }),
           createdAt: admin.firestore.Timestamp.now(),
           lastLogin: admin.firestore.Timestamp.now(),
+          activeToken: token,
         });
       } else {
         await userRef.update({
           role: matchedUser.role,
           txPermission: matchedUser.txPermission,
           lastLogin: admin.firestore.Timestamp.now(),
+          activeToken: token,
         });
       }
     } catch (e) {
-      logger.warn('[auth] lastLogin update failed (non-fatal)', e);
+      logger.warn('[auth] lastLogin/activeToken update failed (non-fatal)', e);
     }
 
     logger.info(`[auth] Login: ${userId} (${matchedUser.role}/${matchedUser.txPermission})`);
@@ -82,11 +84,38 @@ export const login = onRequest({ cors: true }, async (req, res) => {
       res.status(200).json({ valid: false, reason: 'no_token' });
       return;
     }
-    res.status(200).json({ valid: true });
-    return;
+    try {
+      const userRef = admin.firestore().collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      if (!userDoc.exists) {
+        res.status(200).json({ valid: false, reason: 'user_not_found' });
+        return;
+      }
+      const activeToken = userDoc.data()?.activeToken;
+      if (activeToken !== token) {
+        res.status(200).json({ valid: false, reason: 'session_expired' });
+        return;
+      }
+      res.status(200).json({ valid: true });
+      return;
+    } catch (e) {
+      logger.error('[auth] check failed', e);
+      res.status(200).json({ valid: false, reason: 'check_error' });
+      return;
+    }
   }
 
   if (req.method === 'POST' && path.includes('logout')) {
+    const { userId } = req.body;
+    if (userId) {
+      try {
+        await admin.firestore().collection('users').doc(userId).update({
+          activeToken: admin.firestore.FieldValue.delete(),
+        });
+      } catch (e) {
+        logger.warn('[auth] logout activeToken clear failed (non-fatal)', e);
+      }
+    }
     res.status(200).json({ message: 'ok' });
     return;
   }

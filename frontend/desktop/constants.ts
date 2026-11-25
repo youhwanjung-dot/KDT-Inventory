@@ -48,7 +48,7 @@ export const DEFAULT_DB_FIELDS: FieldDef[] = [
   { key: 'unit',          label: '표시단위',      required: true  },
   { key: 'eaPerUnit',     label: '단위당 EA',     required: false },
   { key: 'qtyPerProduct', label: '1대당 소요',    required: false },
-  { key: 'currentStock',  label: '현재고(EA)',    required: true  },
+  { key: 'currentStock',  label: '현재고',        required: true  },
   { key: 'safeStock',     label: '적정재고',      required: false },
   { key: 'location',      label: '보관위치',      required: false },
   { key: 'note',          label: '비고',          required: false },

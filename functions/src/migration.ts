@@ -58,9 +58,10 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
         res.status(400).json({ error: `Missing or duplicate transaction ID: ${txId || '(empty)'}` });
         return;
       }
+      // 품목 삭제 시 거래 이력은 유지하므로, 삭제된 품목을 참조하는 고아 거래가 존재할 수 있음.
+      // 검증에 실패하지 않고 경고만 남기며 해당 거래는 그대로 보존한다.
       if (!inventoryIds.has(itemId)) {
-        res.status(400).json({ error: `Transaction ${txId} references missing inventory ${itemId || '(empty)'}` });
-        return;
+        logger.warn(`Transaction ${txId} references missing inventory ${itemId} — keeping orphaned transaction`);
       }
       if (!Number.isFinite(Number(tx.quantity))) {
         res.status(400).json({ error: `Invalid quantity for transaction ${txId}` });

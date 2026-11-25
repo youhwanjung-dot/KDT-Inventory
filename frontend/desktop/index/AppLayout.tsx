@@ -17,6 +17,7 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  GitMerge,
 } from 'lucide-react';
 
 import Login from '../components/Login';
@@ -29,6 +30,7 @@ import TransactionHistoryImport from '../components/TransactionHistoryImport';
 import DataMigrationModal from '../components/DataMigrationModal';
 import UserManagerModal from '../components/UserManagerModal';
 import MasterDataManagerModal from '../components/MasterDataManagerModal';
+import DuplicateItemManager from '../components/DuplicateItemManager';
 import MonthlyReportModal from '../components/MonthlyReportModal';
 import MonthlyUsageReportModal from '../components/MonthlyUsageReportModal';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -48,9 +50,11 @@ interface AppLayoutProps {
     handleLogin: (user: any) => void;
     handleLogout: (isForced?: boolean) => void;
     handleAddItem: () => void;
-    handleEditItem: (id: string) => void;
+    handleEditItem: (target: string | InventoryItem) => void;
     handleDeleteItem: (id: string) => void;
     handleSaveItem: (item: InventoryItem, applyAcrossZones?: boolean) => void;
+    handleMergeDuplicates: (survivorId: string, mergedIds: string[]) => void;
+    handleDeleteDuplicates: (ids: string[]) => void;
     openTransactionModal: (item: InventoryItem) => void;
     handleTransactionSave: (txData: any) => void;
     handleTransactionUpdate: (oldTx: InventoryTransaction, newTxData: any) => void;
@@ -103,6 +107,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
     showDBManager, setShowDBManager,
     showUserManager, setShowUserManager,
     showMasterDataManager, setShowMasterDataManager,
+    showDuplicateItemManager, setShowDuplicateItemManager,
     showMonthlyReport, setShowMonthlyReport,
     showMonthlyUsageReport, setShowMonthlyUsageReport,
     showLogoutConfirm, setShowLogoutConfirm,
@@ -118,7 +123,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [stockReportRequest, setStockReportRequest] = useState(0);
   const [showUsageReportOptions, setShowUsageReportOptions] = useState(false);
-  const [usageReportMode, setUsageReportMode] = useState<'ANNUAL' | 'ZONE'>('ANNUAL');
+  const [usageReportMode, setUsageReportMode] = useState<'MONTHLY' | 'ANNUAL' | 'ZONE'>('ANNUAL');
   const userRole = user?.role;
 
   useEffect(() => {
@@ -149,6 +154,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
     handleEditItem,
     handleDeleteItem,
     handleSaveItem,
+    handleMergeDuplicates,
+    handleDeleteDuplicates,
     openTransactionModal,
     handleTransactionSave,
     handleTransactionUpdate,
@@ -190,7 +197,13 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
     };
 
     const checkWhenVisible = () => {
-      if (document.visibilityState === 'visible') checkIdleTimeout();
+      // 모니터가 다시 켜지는 순간(lastActivityAt 갱신) 즉시 로그아웃되지 않도록
+      // 깜빡임 현상 방지 + 사용자에게 5분 여유 제공
+      if (document.visibilityState === 'visible') {
+        lastActivityAt = Date.now();
+        if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(checkIdleTimeout, IDLE_LOGOUT_TIMEOUT_MS);
+      }
     };
 
     timeoutId = window.setTimeout(checkIdleTimeout, IDLE_LOGOUT_TIMEOUT_MS);
@@ -252,7 +265,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               item.id === 'STOCK_REPORT'
                 ? false
                 : item.id === 'USAGE_REPORT'
-                  ? showUsageReportOptions || showMonthlyUsageReport || showMonthlyReport
+                  ? showUsageReportOptions || showMonthlyUsageReport
                   : currentView === item.id;
 
             return (
@@ -287,8 +300,9 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
                   <div className="ml-4 border-l border-slate-200 dark:border-slate-700 pl-2 space-y-1">
                     <button
                       onClick={() => {
+                        setUsageReportMode('MONTHLY');
                         setShowUsageReportOptions(false);
-                        setShowMonthlyReport(true);
+                        setShowMonthlyUsageReport(true);
                       }}
                       className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
@@ -312,7 +326,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
                       }}
                       className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                      ZONE
+                      ZONE별
                     </button>
                   </div>
                 )}
@@ -331,6 +345,14 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               >
                 <Box size={20} className="text-orange-500" />
                 {isSidebarOpen && <span className="text-sm">ZONE·기준정보 관리</span>}
+              </button>
+              <button
+                onClick={() => setShowDuplicateItemManager(true)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                title="중복 품목 탐지 및 병합·삭제"
+              >
+                <GitMerge size={20} className="text-purple-500" />
+                {isSidebarOpen && <span className="text-sm">중복품목 관리</span>}
               </button>
               <button
                 onClick={() => setShowUserManager(true)}
@@ -664,7 +686,18 @@ const AppLayout: React.FC<AppLayoutProps> = ({ state, handlers }) => {
               throw new Error(`다음 ZONE의 재고 품목 저장에 실패했습니다: ${failedCategories.join(', ')}`);
             }
           }}
+          onEditItem={handleEditItem}
           onClose={() => setShowMasterDataManager(false)}
+        />
+      )}
+
+      {showDuplicateItemManager && (
+        <DuplicateItemManager
+          inventory={inventory}
+          transactions={transactions}
+          onClose={() => setShowDuplicateItemManager(false)}
+          onMerge={handleMergeDuplicates}
+          onDelete={handleDeleteDuplicates}
         />
       )}
 

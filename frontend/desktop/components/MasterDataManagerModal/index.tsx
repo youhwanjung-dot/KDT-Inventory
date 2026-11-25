@@ -36,6 +36,7 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
   onNormalizeZoneItems,
   onCreateZoneItems,
   onCreateItems,
+  onEditItem,
   onClose,
 }) => {
   const [activeTabKey, setActiveTabKey] = useState<TargetField>('category');
@@ -125,6 +126,32 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
       zoneId: `Z-${catName.replace(/[^A-Za-z0-9_]/g, '') || Date.now()}`,
       displayName: catName,
       aliasHistory: [],
+    };
+  };
+
+  // 재고 레코드가 없는(기준정보에만 등록된) 품명을 전체수정모달로 열기 위한 초안 품목
+  const createDraftItem = (category: string, name: string): InventoryItem => {
+    const zoneMeta = getZoneMetaForName(category);
+    return {
+      id: '',
+      category,
+      zoneId: zoneMeta.zoneId,
+      name,
+      plating: '',
+      spec: '',
+      unit: 'EA',
+      eaPerUnit: 1,
+      qtyPerProduct: 0,
+      setGroup: '',
+      pkgUnit: '',
+      pkgType: '',
+      outerPkg: '',
+      currentStock: 0,
+      safeStock: 0,
+      location: '',
+      supplier: '',
+      note: '',
+      lastUpdated: new Date().toISOString().slice(0, 10),
     };
   };
 
@@ -1043,11 +1070,26 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
 
                       <button
                         onClick={() => {
+                          // 재고 유무와 관계없이 전체수정모달(StockForm)로 통일
+                          if (onEditItem && drillCategory) {
+                            // namesByCategory의 품목명과 inventory의 name이 공백·대소문자 등으로
+                            // 미묘하게 다를 수 있으므로 trim·소문자 정규화로 검색.
+                            // 정규화 검색 실패 시에만 createDraftItem(신규)으로 처리하여
+                            // 기존 재고 문서를 남겨둔 채 새 문서가 생기는 중복을 방지한다.
+                            const normalizedVal = String(val || '').trim().toLocaleLowerCase();
+                            const target = inventory.find(
+                              (i) =>
+                                i.category === drillCategory &&
+                                String(i.name || '').trim().toLocaleLowerCase() === normalizedVal
+                            );
+                            onEditItem(target ? target.id : createDraftItem(drillCategory, val));
+                            return;
+                          }
                           setEditingValue(val);
                           setTempValue(val);
                         }}
                         className="p-1.5 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30 rounded"
-                        title="이름 수정"
+                        title="품목 정보 수정"
                       >
                         <Edit2 size={15} />
                       </button>

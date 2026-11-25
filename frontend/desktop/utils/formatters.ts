@@ -5,6 +5,21 @@ import { InventoryItem } from '../types';
  * All stock & transaction values are managed in integer EA (C1 confirmed).
  */
 
+/**
+ * Normalizes an item name for duplicate detection.
+ * Strips whitespace, parentheses, and punctuation, lowercases, splits into tokens,
+ * then sorts and joins so "PC판 (ABB)" === "ABB PC판" === "PC판(ABB)".
+ */
+export const normalizeName = (name: string): string => {
+  return (name || '')
+    .trim()
+    .toLowerCase()
+    .split(/[\s()\[\]{}.,;:'"+-]+/)
+    .filter(Boolean)
+    .sort()
+    .join('');
+};
+
 export const roundToInt = (
   value: number | string | undefined | null,
   fallback = 0

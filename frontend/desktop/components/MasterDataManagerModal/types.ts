@@ -23,6 +23,7 @@ export interface MasterDataManagerModalProps {
     masterData: MasterData
   ) => Promise<{ masterData: MasterData; savedItemCount: number; failedItemCount: number }>;
   onCreateItems?: (categories: string[], name: string) => Promise<void>;
+  onEditItem?: (target: string | InventoryItem) => void;
   onClose: () => void;
 }
 

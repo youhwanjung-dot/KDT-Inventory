@@ -52,12 +52,17 @@ const InventoryReport: React.FC<ReportProps> = ({ items, transactions, onClose }
     const legacyMissingValue = safeStock === 1 && item.id.startsWith('IMP-');
     return {
       ...item,
-      safeStock: safeStock > 0 && !legacyMissingValue ? safeStock : Math.max(0, Number(item.currentStock) || 0),
+      safeStock: safeStock > 0 && !legacyMissingValue ? safeStock : 0,
     };
   }), [items]);
 
   // --- Analysis Logic (All limited to Top 5) ---
-  const shortageData = useMemo(() => analysisItems.filter(i => i.currentStock < i.safeStock).map(i => ({...i, shortage: i.safeStock - i.currentStock})).sort((a,b) => b.shortage - a.shortage).slice(0, 5), [analysisItems]);
+  // 명시적 적정재고(safeStock > 0)가 있으면 그 기준으로, 없으면 현재고 0일 때만 부족
+  const shortageData = useMemo(() => analysisItems
+    .filter(i => i.safeStock > 0 ? i.currentStock < i.safeStock : i.currentStock === 0)
+    .map(i => ({...i, shortage: i.safeStock > 0 ? i.safeStock - i.currentStock : 0}))
+    .sort((a,b) => b.shortage - a.shortage)
+    .slice(0, 5), [analysisItems]);
   const overstockData = useMemo(() => analysisItems.filter(i => i.safeStock > 0 && i.currentStock > i.safeStock * 2.5).map(i => ({...i, excess: i.currentStock - i.safeStock, ratio: ((i.currentStock - i.safeStock) / i.safeStock) * 100})).sort((a,b) => b.ratio - a.ratio).slice(0, 5), [analysisItems]);
   const deadStockData = useMemo(() => {
     const ninetyDaysAgo = new Date();

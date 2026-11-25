@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Edit, AlertCircle, Box, Layers } from 'lucide-react';
 import { InventoryItem } from '../../types';
 import { formatInteger, roundToInt } from '../../utils/formatters';
-import { InventoryColWidths, ItemActivityStats } from './types';
+import { InventoryColWidths } from './types';
 import { InventoryViewMode } from './InventoryToolbar';
 
 interface ResizableThProps {
@@ -43,7 +43,6 @@ interface InventoryTableProps {
   allItems: InventoryItem[];
   viewMode: InventoryViewMode;
   colWidths: InventoryColWidths;
-  item3MonthStats: Map<string, ItemActivityStats>;
   onResizeStart: (e: React.MouseEvent, key: keyof InventoryColWidths) => void;
   onEdit: (id: string) => void;
   onTransaction: (item: InventoryItem) => void;
@@ -57,7 +56,6 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   allItems,
   viewMode,
   colWidths,
-  item3MonthStats,
   onResizeStart,
   onEdit,
   onTransaction,
@@ -221,7 +219,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               규격
             </ResizableTh>
             <ResizableTh width={colWidths.currentStock} onResizeStart={(e) => onResizeStart(e, 'currentStock')} align="right">
-              현재고 (EA)
+              현재고
             </ResizableTh>
             <ResizableTh width={colWidths.unit} onResizeStart={(e) => onResizeStart(e, 'unit')}>
               단위
@@ -236,10 +234,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {items.map((item, index) => {
-            const stats = item3MonthStats.get(item.id);
-            const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
-            const safeThreshold = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : roundToInt(item.safeStock, 0);
-            const isLowStock = safeThreshold > 0 && roundToInt(item.currentStock, 0) < safeThreshold;
+            const safeThreshold = roundToInt(item.safeStock, 0);
+            const isLowStock = safeThreshold > 0
+              ? roundToInt(item.currentStock, 0) < safeThreshold
+              : roundToInt(item.currentStock, 0) === 0;
 
             const per = roundToInt(item.eaPerUnit ?? 1, 1);
             const showUnitRef = per > 1 && item.unit && item.unit.toUpperCase() !== 'EA';

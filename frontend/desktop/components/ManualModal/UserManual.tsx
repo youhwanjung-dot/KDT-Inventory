@@ -96,7 +96,7 @@ const UserManual: React.FC<UserManualProps> = ({ userRole }) => {
                 </div>
                 <div className="rounded border border-slate-200 p-2 text-center">
                   <Boxes size={16} className="mx-auto mb-1 text-emerald-600" />
-                  현재고(EA) / 위치 / 비고
+                  현재고 / 위치 / 비고
                 </div>
               </div>
             </Snapshot>

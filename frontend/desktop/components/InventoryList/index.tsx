@@ -8,7 +8,6 @@ import {
   DEFAULT_WIDTHS,
   InventoryColWidths,
   InventoryListProps,
-  ItemActivityStats,
   WIDTH_STORAGE_KEY,
 } from './types';
 import { exportInventoryToExcel } from './excelExport';
@@ -103,38 +102,16 @@ const InventoryList: React.FC<InventoryListProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // 90-day transaction stats strictly keyed by itemId (never by itemName, preventing cross-ZONE collision)
-  const item3MonthStats = useMemo(() => {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - 90);
-    const cutoffStr = cutoffDate.toISOString().split('T')[0];
-
-    const map = new Map<string, ItemActivityStats>();
-    transactions.forEach((tx) => {
-      if (!tx.date || tx.date < cutoffStr) return;
-      const key = tx.itemId;
-      if (!key) return;
-      const existing = map.get(key) || { hasActivity: false, totalOut: 0, monthlyAvg: 0 };
-      existing.hasActivity = true;
-      if (tx.type === 'OUT') {
-        existing.totalOut += roundToInt(tx.quantity, 0);
-      }
-      map.set(key, existing);
-    });
-    map.forEach((val) => {
-      val.monthlyAvg = Math.round(val.totalOut / 3);
-    });
-    return map;
-  }, [transactions]);
-
   const lowStockCount = useMemo(() => {
     return items.filter((item) => {
-      const stats = item3MonthStats.get(item.id);
-      const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
-      const safe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : roundToInt(item.safeStock, 0);
-      return safe > 0 && roundToInt(item.currentStock, 0) < safe;
+      const safe = roundToInt(item.safeStock, 0);
+      const current = roundToInt(item.currentStock, 0);
+      if (safe > 0) {
+        return current < safe;
+      }
+      return current === 0;
     }).length;
-  }, [items, item3MonthStats]);
+  }, [items]);
 
   // ZONE & item sort maps from masterData
   const categoryOrderMap = useMemo(() => {
@@ -186,10 +163,10 @@ const InventoryList: React.FC<InventoryListProps> = ({
       const matchesLowStock =
         !showOnlyLowStock ||
         (() => {
-          const stats = item3MonthStats.get(item.id);
-          const monthlyAvgOut = stats ? stats.monthlyAvg : 0;
-          const safe = monthlyAvgOut > 0 ? Math.ceil(monthlyAvgOut) : roundToInt(item.safeStock, 0);
-          return safe > 0 && roundToInt(item.currentStock, 0) < safe;
+          const safe = roundToInt(item.safeStock, 0);
+          const current = roundToInt(item.currentStock, 0);
+          if (safe > 0) return current < safe;
+          return current === 0;
         })();
 
       return matchesSearch && matchesCategory && matchesLowStock;
@@ -213,7 +190,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
       }
       return formatItemDisplayKey(a).localeCompare(formatItemDisplayKey(b));
     });
-  }, [items, searchTerm, selectedCategories, showOnlyLowStock, item3MonthStats, categoryOrderMap, namesByCategoryOrderMap]);
+  }, [items, searchTerm, selectedCategories, showOnlyLowStock, categoryOrderMap, namesByCategoryOrderMap]);
 
   const handleExportExcel = async () => {
     ActionLogger.log('KDT Excel Export Initiated', { targetYear: exportYear });
@@ -290,7 +267,6 @@ const InventoryList: React.FC<InventoryListProps> = ({
           allItems={items}
           viewMode={viewMode}
           colWidths={colWidths}
-          item3MonthStats={item3MonthStats}
           onResizeStart={handleMouseDown}
           onEdit={onEdit}
           onTransaction={onTransaction}
