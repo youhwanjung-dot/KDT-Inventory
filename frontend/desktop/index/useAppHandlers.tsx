@@ -16,6 +16,7 @@ import {
   AppState,
   isCarryOverReason,
   normalizeDateString,
+  normalizeInventory,
   normalizeTransactions,
 } from './useAppState';
 
@@ -469,6 +470,20 @@ export function useAppHandlers(state: AppState) {
 
   // ── Transactions ──────────────────────────────────────────────────────────
 
+  // 저장/수정/삭제 후 onSnapshot 타이밍 이슈 없이 즉시 화면 반영
+  const refreshStockData = async () => {
+    try {
+      const [items, txs] = await Promise.all([
+        api.getInventory(),
+        api.getTransactions(),
+      ]);
+      setInventory(normalizeInventory(items));
+      setTransactions(normalizeTransactions(txs));
+    } catch (e) {
+      console.error('refreshStockData failed:', e);
+    }
+  };
+
   const openTransactionModal = (item: InventoryItem) => {
     setTransactionItem(item);
     setShowTransactionModal(true);
@@ -511,6 +526,8 @@ export function useAppHandlers(state: AppState) {
       const finalTx = { ...txData, id: newId, date: normalizedDate };
       await api.saveTransaction(finalTx);
       ActionLogger.log('Transaction Recorded (DB)', { type: txData.type, item: txData.itemName });
+      // 즉시 화면 반영: onSnapshot 타이밍 이슈 방지를 위해 명시적 재조회
+      await refreshStockData();
     } catch (e) {
       setAlertModal({ title: '저장 실패', message: '이력 저장 실패: ' + e });
     }
@@ -523,6 +540,8 @@ export function useAppHandlers(state: AppState) {
     try {
       await api.updateTransaction(oldTx.id, newTxData);
       ActionLogger.log('Transaction Updated (DB)', { id: oldTx.id });
+      // 즉시 화면 반영: onSnapshot 타이밍 이슈 방지를 위해 명시적 재조회
+      await refreshStockData();
     } catch (e) {
       setAlertModal({ title: '수정 실패', message: '수정 실패: ' + e });
     }
@@ -532,6 +551,8 @@ export function useAppHandlers(state: AppState) {
     try {
       await api.deleteTransaction(tx.id);
       ActionLogger.log('Transaction Deleted (DB)', { id: tx.id });
+      // 즉시 화면 반영: onSnapshot 타이밍 이슈 방지를 위해 명시적 재조회
+      await refreshStockData();
     } catch (e) {
       setAlertModal({ title: '삭제 실패', message: '삭제 실패: ' + e });
     }

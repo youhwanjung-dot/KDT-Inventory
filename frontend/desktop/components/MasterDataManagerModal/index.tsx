@@ -743,8 +743,13 @@ const MasterDataManagerModal: React.FC<MasterDataManagerModalProps> = ({
         setSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');
         return;
       }
-      setSyncResult(`동기화 완료: 수불 이력 ${typeof updatedNames === 'number' ? updatedNames : 0}건의 품명을 갱신했습니다.`);
-      ActionLogger.log('MasterData Synced');
+      // 전체 품목 재고 재계산 (기존 수불 이력의 snapshot/currentStock 정합화)
+      const recalc = await api.recalculateAllStock();
+      const nameCount = typeof updatedNames === 'number' ? updatedNames : 0;
+      setSyncResult(
+        `동기화 완료: 품명 갱신 ${nameCount}건, 재고 재계산 ${recalc.total}개 품목 처리.`
+      );
+      ActionLogger.log('MasterData Synced + Stock Recalculated');
     } catch (error) {
       console.error('Failed to sync master data:', error);
       setSyncResult('동기화에 실패했습니다. 오류 안내를 확인해 주세요.');

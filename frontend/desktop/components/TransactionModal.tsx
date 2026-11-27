@@ -36,6 +36,16 @@ interface TransactionModalProps {
 const DEPARTMENTS: string[] = [...USER_DEPARTMENTS];
 const REASONS_IN = ['자재입고', '추가입고', '반품입고', '직접입력'];
 const REASONS_OUT = ['라인불출', '추가불출', '불량폐기', '직접입력'];
+const isCarryOverTx = (tx: InventoryTransaction): boolean => tx.reason === '재고이월';
+const compareTransactions = (a: InventoryTransaction, b: InventoryTransaction): number => {
+  const dateDiff = a.date.localeCompare(b.date);
+  if (dateDiff !== 0) return dateDiff;
+
+  const carryDiff = Number(isCarryOverTx(b)) - Number(isCarryOverTx(a));
+  if (carryDiff !== 0) return carryDiff;
+
+  return a.id.localeCompare(b.id);
+};
 
 const resolveTxPermission = (u: UserType): TxPermission => {
   if (u.role === 'admin') return 'ALL';
@@ -83,29 +93,35 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const hasUnitConversion = (item.eaPerUnit ?? 1) > 1 && item.unit && item.unit.toUpperCase() !== 'EA';
 
-  // Compute exact running stock (integer EA) backwards from currentStock
+  // 거래 이력 자체를 날짜순으로 누적 계산해 화면 잔고를 안정적으로 맞춘다.
   const itemTransactionsWithStock = useMemo(() => {
     const sorted = transactions
       .filter((t) => t.itemId === item.id)
-      .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+      .sort(compareTransactions);
 
-    const runningStock = roundToInt(item.currentStock, 0);
-    const stockAfter: number[] = new Array(sorted.length).fill(0);
-    let rolling = runningStock;
-    for (let i = sorted.length - 1; i >= 0; i--) {
-      stockAfter[i] = rolling;
-      const qty = roundToInt(sorted[i].quantity, 0);
-      const delta = sorted[i].type === 'IN' ? qty : -qty;
-      rolling = rolling - delta;
-    }
+    let runningStock = 0;
 
     return sorted
-      .map((tx, i) => ({
-        ...tx,
-        computedStock: stockAfter[i],
-      }))
+      .map((tx) => {
+        const qty = roundToInt(tx.quantity, 0);
+        if (isCarryOverTx(tx)) {
+          runningStock = qty;
+        } else {
+          runningStock += tx.type === 'IN' ? qty : -qty;
+        }
+
+        return {
+          ...tx,
+          computedStock: runningStock,
+        };
+      })
       .reverse();
-  }, [transactions, item.id, item.currentStock]);
+  }, [transactions, item.id]);
+
+  const displayedCurrentStock = useMemo(() => {
+    const latestTx = itemTransactionsWithStock[0];
+    return roundToInt(latestTx ? (latestTx as any).computedStock : item.currentStock, 0);
+  }, [itemTransactionsWithStock, item.currentStock]);
 
   const filteredTransactions = useMemo(() => {
     if (historyView === 'all') {
@@ -300,7 +316,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({
               <span>
                 현재고:{' '}
                 <span className="text-orange-600 dark:text-orange-400 font-bold text-base">
-                  {formatStockWithUnit(item.currentStock, item.unit, item.eaPerUnit)}
+                      {formatStockWithUnit(displayedCurrentStock, item.unit, item.eaPerUnit)}
                 </span>
               </span>
             </div>

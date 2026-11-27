@@ -209,6 +209,31 @@ Q14 Firestore 리전: 서울(asia-northeast3)과 아산과 같은 us-central1 �
 
 ---
 
+# [5차] 과거 수불 수정 시 잔고 연쇄 재계산 반영 (2026-11-27, Ver 1.4.8 ~ 1.4.10)
+
+> 운영 중 확인된 잔고 불일치 문제에 대해, 이전 일자의 수불기록을 수정/삭제하면 이후 잔고가 순차적으로 다시 계산되도록 반영한 내용입니다.
+
+## ■ 확정 반영
+
+| 항목 | 확정 내용 | 반영 |
+|---|---|---|
+| 잔고 재계산 기준 | 이전 일자의 입고/출고 수량을 수정하거나 삭제하면, 해당 품목의 이후 모든 수불기록 잔고를 날짜순으로 다시 계산 | Ver 1.4.8 |
+| 서버 계산 | `transactions.ts`에서 POST/PUT/DELETE마다 해당 품목의 전체 거래 이력을 재정렬 후 `currentStockSnapshot` 전건 재계산, 마지막 잔고를 `inventory.currentStock`으로 저장 | Ver 1.4.8 |
+| 화면 표시 | `TransactionModal`은 `item.currentStock` 역산 대신 거래 이력 누적 잔고를 직접 표시하여 과거 거래 수정 직후에도 표와 상단 현재고가 일치 | Ver 1.4.8 |
+| 재고이월 처리 | `재고이월` 거래는 해당 시점의 기준 재고로 적용하고, 이후 일반 입출고를 누적 계산 | Ver 1.4.8 |
+| 전체 품목 일괄 재계산 | `POST /transactions/recalculate-all` 엔드포인트 추가 및 '서버 즉시 동기화' 버튼과 연동. 배포 전 구 로직으로 잘못 저장된 기존 snapshot/currentStock을 한 번에 정합화 | Ver 1.4.9 |
+| 저장 후 즉시 반영 | 수불 저장/수정/삭제 성공 후 `refreshStockData()`로 inventory·transactions 명시적 재조회. onSnapshot 타이밍 이슈로 즉시 반영 안되던 문제 해소 | Ver 1.4.10 |
+| 자동 로그아웃 반복 수정 | 세션 체크에서 `session_expired` 시 경고만 띄우고 실제 로그아웃을 안 해 경고가 반복되던 버그 수정. 일시적 오류는 1회 재시도 후 세션 정리 수행 | Ver 1.4.10 |
+
+## ■ 현재 상태 (2026-11-27)
+
+- 로컬 버전: **Ver 1.4.10** (`Version.json` / `Blueprint.md` / `Task.md` / `Revision_history.md` 반영)
+- 검증: 루트 `npm run typecheck`, 루트 `npm run build`, `functions` `npm run build` 통과
+- 배포: Functions / Hosting 재배포 **완료** (사용자 진행, 정상 동작 확인)
+- 작업경로: 워크스페이스는 `D:\M_PROJECT\KDT-Inventory_3500` 단일 폴더로 정리 완료
+
+---
+
 # [4차] 운영 반영 확정 사항 및 현황 정리 (2026-11-25, Ver 1.4.7)
 
 > 3차 확정(C1~C4) 이후 운영 검증 과정에서 확정된 항목을 별도 질의 없이 반영한 내역입니다. (버전별 상세는 [`Revision_history.md`](./Revision_history.md) 참조)

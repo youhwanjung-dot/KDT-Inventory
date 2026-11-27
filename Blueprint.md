@@ -7,7 +7,7 @@
 
 | Flag | 현재 값 | 설명 |
 |---|---|---|
-| `VERSION_MODE` | `1.4.7` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.4.10` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | `false` | `true` 전환 시 초기 목업 데이터 분기 동작 (코드 보존) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore (`asia-northeast3` 서울) / 로컬 분기 보존 |
 
@@ -130,10 +130,9 @@ KDT-Inventory_3500/
 ├─ _Local_run_KDT.bat                 (표준 로컬 클린빌드/실행, 포트 3500)
 ├─ _Cloud_run_KDT.bat                 (표준 클라우드 빌드/배포, kdt-inventory)
 ├─ package.json / tsconfig.json / vite.config.ts / eslint.config.js
-├─ KDT_작업계획서.md                   (마스터 작업계획서)
+├─ Task.md                            (작업계획서 + 세부 작업 진행 현황 일원화)
 ├─ Blueprint.md                       (이 문서)
-├─ Revision_history.md                (개정이력 누적)
-└─ Task.md                            (세부 작업 진행 현황)
+└─ Revision_history.md                (개정이력 누적)
 ```
 
 ---

@@ -80,6 +80,16 @@ export const api = {
       method: 'DELETE',
     });
   },
+  // 전체 품목 재고 재계산 (서버 즉시 동기화 시 호출)
+  recalculateAllStock: async () => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', total: 0, results: [] };
+    }
+    return fetchAPI<{ message: string; total: number; results: Array<{ itemId: string; currentStock: number }> }>(
+      '/transactions/recalculate-all',
+      { method: 'POST' }
+    );
+  },
 
   // Users
   getUsers: async (): Promise<User[]> => {

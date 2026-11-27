@@ -26,6 +26,8 @@ export function useAppEffects(state: AppState) {
     setMasterData,
     setUsers,
     setAlertModal,
+    setUser,
+    setCurrentView,
     realtimePausedRef,
   } = state;
 
@@ -118,6 +120,17 @@ export function useAppEffects(state: AppState) {
 
   // Session check (every 30s) + window focus sync (data refresh)
   const lastFocusSyncRef = useRef(0);
+  const sessionRetryRef = useRef(false);
+
+  const performLogout = () => {
+    try {
+      sessionStorage.removeItem(SESSION_USER_KEY);
+      sessionStorage.removeItem(SESSION_VIEW_KEY);
+    } catch {}
+    localStorage.removeItem('session_token');
+    setUser(null);
+    setCurrentView('DASHBOARD');
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -133,12 +146,25 @@ export function useAppEffects(state: AppState) {
           token,
         });
 
-        if (!result.valid) {
-          setAlertModal({
-            title: '세션 종료',
-            message: '다른 기기에서 로그인하여 접속이 종료됩니다.',
-          });
+        if (result.valid) {
+          sessionRetryRef.current = false;
+          return;
         }
+
+        // 일시적 오류(user_not_found, check_error)는 1회 재시도 후에도 실패하면 로그아웃
+        if (result.reason !== 'session_expired') {
+          if (!sessionRetryRef.current) {
+            sessionRetryRef.current = true;
+            return;
+          }
+        }
+
+        // session_expired 또는 재시도 실패 시 로그아웃
+        setAlertModal({
+          title: '세션 종료',
+          message: '다른 기기에서 로그인하여 접속이 종료됩니다.',
+        });
+        performLogout();
       } catch (error) {
         console.error('Session check failed:', error);
       }
