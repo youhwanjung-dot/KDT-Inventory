@@ -1,4 +1,11 @@
-import { InventoryItem, InventoryTransaction, MasterData, User } from '../types';
+import {
+  InventoryItem,
+  InventoryTransaction,
+  MasterData,
+  User,
+  ZoneArchiveData,
+  ZoneArchiveSummary,
+} from '../types';
 import { INITIAL_USERS, MOCKUP_MODE, STORAGE_MODE } from '../constants';
 
 const API_BASE_URL = window.location.port === '5173'
@@ -38,13 +45,93 @@ export const api = {
       body: JSON.stringify(item),
     });
   },
-  deleteItem: async (id: string) => {
+  deleteItem: async (id: string, session: { userId: string; token: string }) => {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
-      return { message: 'ok (local/mockup)' };
+      return { message: 'ok (local/mockup)', deletedTransactions: 0 };
     }
-    return fetchAPI<{ message: string }>(`/inventory/${encodeURIComponent(id)}`, {
+    return fetchAPI<{ message: string; deletedTransactions: number }>(`/inventory/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      body: JSON.stringify(session),
     });
+  },
+  deleteExcludedItems: async (
+    itemIds: string[],
+    session: { userId: string; token: string }
+  ) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', deletedItems: itemIds.length, deletedTransactions: 0 };
+    }
+    return fetchAPI<{ message: string; deletedItems: number; deletedTransactions: number }>('/inventory', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'deleteExcludedItems', itemIds, ...session }),
+    });
+  },
+
+  getZoneArchives: async (): Promise<ZoneArchiveSummary[]> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') return [];
+    return fetchAPI<ZoneArchiveSummary[]>('/zone-archives');
+  },
+  getZoneArchive: async (archiveId: string): Promise<ZoneArchiveData> => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      throw new Error('ZONE 아카이브는 Cloud 모드에서만 조회할 수 있습니다.');
+    }
+    return fetchAPI<ZoneArchiveData>(`/zone-archives/${encodeURIComponent(archiveId)}`);
+  },
+  archiveZone: async (data: {
+    zoneId: string;
+    displayName: string;
+    userId: string;
+    token: string;
+  }) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      throw new Error('ZONE 아카이브는 Cloud 모드에서만 처리할 수 있습니다.');
+    }
+    return fetchAPI<{
+      message: string;
+      archiveId: string;
+      itemCount: number;
+      transactionCount: number;
+      orphanTransactionCount: number;
+    }>('/zone-archives', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, action: 'archive' }),
+    });
+  },
+  restoreZoneArchive: async (data: {
+    archiveId: string;
+    userId: string;
+    token: string;
+  }) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      throw new Error('ZONE 아카이브는 Cloud 모드에서만 처리할 수 있습니다.');
+    }
+    return fetchAPI<{ message: string; itemCount: number; transactionCount: number }>(
+      '/zone-archives',
+      { method: 'POST', body: JSON.stringify({ ...data, action: 'restore' }) }
+    );
+  },
+  replaceZoneArchivesFromBackup: async (
+    archives: ZoneArchiveData[],
+    session: { userId: string; token: string }
+  ) => {
+    if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
+      return { message: 'ok (local/mockup)', archiveCount: archives.length };
+    }
+    for (const archive of archives) {
+      await fetchAPI('/zone-archives', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'importBackup', archive, ...session }),
+      });
+    }
+    await fetchAPI('/zone-archives', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'finalizeBackupImport',
+        archiveIds: archives.map((archive) => archive.id),
+        ...session,
+      }),
+    });
+    return { message: 'ok', archiveCount: archives.length };
   },
 
   // Transactions

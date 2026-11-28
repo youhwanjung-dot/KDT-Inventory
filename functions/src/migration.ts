@@ -2,6 +2,7 @@ import { getAdmin } from './adminApp';
 const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { assertZoneWritable } from './operationGuards';
 
 const toInt = (val: unknown): number => Math.round(Number(val) || 0);
 
@@ -77,6 +78,14 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
       res.status(400).json({ error: 'masterData.categories must be an array' });
       return;
     }
+
+    await assertZoneWritable(
+      db,
+      [
+        ...inventory.flatMap((item: any) => [item.zoneId, item.category]),
+        ...transactions.flatMap((tx: any) => [tx.zoneId, tx.category]),
+      ]
+    );
 
     // Keep old documents until all replacement documents have been written.
     const invSnapshot = await db.collection('inventory').get();
@@ -167,8 +176,8 @@ export const migration = onRequest({ cors: true }, async (req, res) => {
 
     logger.info(`KDT migration complete: ${inventory.length} inventory, ${transactions.length} transactions`);
     res.json({ message: 'ok', inventoryCount: inventory.length, transactionCount: transactions.length });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Migration error', error);
-    res.status(500).json({ error: 'Migration failed' });
+    res.status(Number(error?.status) || 500).json({ error: error?.message || 'Migration failed' });
   }
 });

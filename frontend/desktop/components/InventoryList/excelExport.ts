@@ -1,12 +1,13 @@
 import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { InventoryItem, InventoryTransaction, MasterData } from '../../types';
+import { InventoryItem, InventoryTransaction, MasterData, ZoneArchiveData } from '../../types';
 import { formatItemDisplayKey, roundToInt } from '../../utils/formatters';
 
 export interface ExportExcelParams {
   items: InventoryItem[];
   transactions: InventoryTransaction[];
   masterData: MasterData;
+  zoneArchives?: ZoneArchiveData[];
   selectedCategories: string[];
   categoryOrderMap: Map<string, number>;
   namesByCategoryOrderMap: Map<string, Map<string, number>>;
@@ -82,6 +83,7 @@ export async function exportInventoryToExcel({
   items,
   transactions,
   masterData,
+  zoneArchives = [],
   selectedCategories,
   categoryOrderMap,
   namesByCategoryOrderMap,
@@ -682,6 +684,40 @@ export async function exportInventoryToExcel({
       visible: [key],
       source: { key, value },
     }))
+  );
+  addSourceSheet(
+    'DB_ZONE아카이브',
+    'ZONE 아카이브 목록 (DB 복구용)',
+    ['아카이브 ID', 'ZONE', '상태', '품목 수', '수불 수', '원본 JSON'],
+    zoneArchives.map((archive) => ({
+      visible: [
+        archive.id,
+        archive.displayName,
+        archive.status,
+        archive.itemCount,
+        archive.transactionCount,
+      ],
+      source: {
+        ...archive,
+        inventory: undefined,
+        transactions: undefined,
+      },
+    }))
+  );
+  addSourceSheet(
+    'DB_ZONE아카이브원본',
+    'ZONE 아카이브 품목·수불 원본 (DB 복구용)',
+    ['아카이브 ID', '자료 유형', '레코드 ID', '원본 JSON'],
+    zoneArchives.flatMap((archive) => [
+      ...archive.inventory.map((item) => ({
+        visible: [archive.id, 'inventory', item.id],
+        source: { archiveId: archive.id, recordType: 'inventory', record: item },
+      })),
+      ...archive.transactions.map((tx) => ({
+        visible: [archive.id, 'transaction', tx.id],
+        source: { archiveId: archive.id, recordType: 'transaction', record: tx },
+      })),
+    ])
   );
 
   const fileName = `KDT-Inventory-${targetYear}-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.xlsx`;

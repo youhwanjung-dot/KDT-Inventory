@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { InventoryItem, InventoryTransaction, MasterData, User } from '../types';
+import { InventoryItem, InventoryTransaction, MasterData, User, ZoneArchiveData } from '../types';
 import { api } from '../utils/api';
 import { ActionLogger } from '../utils/logger';
 import {
@@ -127,19 +127,41 @@ export function useAppHandlers(state: AppState) {
   const handleDeleteItem = async (id: string) => {
     const target = inventory.find((i) => i.id === id);
     if (!target) return;
+    if (!user || user.role !== 'admin') {
+      setAlertModal({ title: '권한 부족', message: '관리자만 품목을 영구삭제할 수 있습니다.' });
+      return;
+    }
+    if (Math.round(Number(target.currentStock) || 0) !== 0) {
+      setAlertModal({
+        title: '영구삭제 불가',
+        message: '현재고가 0인 품목만 영구삭제할 수 있습니다. 먼저 반납·이관 또는 출고 정산을 진행해 주세요.',
+      });
+      return;
+    }
+    const linkedTransactionCount = transactions.filter((tx) => tx.itemId === id).length;
     setConfirmModal({
-      title: '품목 삭제',
-      message: '정말로 이 항목을 삭제하시겠습니까?\n관련된 입출고 이력은 유지됩니다.',
-      confirmLabel: '삭제',
+      title: '품목 및 수불 이력 영구삭제',
+      message: `${target.category} / ${target.name} 품목과 연결된 수불 이력 ${linkedTransactionCount}건을 DB에서 영구삭제합니다. 이 삭제는 보고서와 복구 파일에도 반영되며 되돌릴 수 없습니다.`,
+      confirmLabel: '영구삭제',
       cancelLabel: '취소',
       isDangerous: true,
       onConfirm: async () => {
         setConfirmModal(null);
+        let itemWasDeleted = false;
         try {
-          await api.deleteItem(id);
-          ActionLogger.log('Inventory Item Deleted (DB)', { id });
+          const result = await api.deleteItem(id, {
+            userId: user.id,
+            token: localStorage.getItem('session_token') || '',
+          });
+          itemWasDeleted = true;
+          setInventory((current) => current.filter((item) => item.id !== id));
+          setTransactions((current) => current.filter((tx) => tx.itemId !== id));
+          ActionLogger.log('Inventory Item Permanently Deleted (DB)', {
+            id,
+            deletedTransactions: result.deletedTransactions,
+            requestedBy: user.id,
+          });
 
-          // 삭제된 품목명이 콤보박스(사용이력)에 남지 않도록 namesByCategory·nameOrder 정리
           const remaining = inventory.filter((i) => i.id !== id);
           const stillInCategory = remaining.some(
             (i) => i.category === target.category && i.name === target.name
@@ -163,9 +185,23 @@ export function useAppHandlers(state: AppState) {
               nameOrder: newNameOrder,
               zoneMeta: masterData.zoneMeta || {},
             });
+            setMasterData({
+              ...masterData,
+              namesByCategory: newNamesByCategory,
+              nameOrder: newNameOrder,
+            });
           }
+          setSuccessMessage(
+            `${target.name} 영구삭제 완료: 수불 이력 ${result.deletedTransactions}건 삭제`
+          );
+          setShowSuccessModal(true);
         } catch (e) {
-          setAlertModal({ title: '삭제 실패', message: '삭제 실패: ' + e });
+          setAlertModal({
+            title: itemWasDeleted ? '기준정보 정리 실패' : '영구삭제 실패',
+            message: itemWasDeleted
+              ? '품목과 수불 이력은 삭제됐지만 기준정보 정리에 실패했습니다. 기준정보를 확인해 주세요. 오류: ' + e
+              : '영구삭제 실패: ' + e,
+          });
         }
       },
     });
@@ -432,30 +468,48 @@ export function useAppHandlers(state: AppState) {
     }
   };
 
-  // 중복 품목 삭제: 트랜잭션 이력은 유지
+  // 중복 관리에서 제외한 품목과 연결된 이력을 함께 영구삭제
   const handleDeleteDuplicates = async (ids: string[]) => {
+    if (!user || user.role !== 'admin') {
+      setAlertModal({ title: '권한 부족', message: '관리자만 품목을 영구삭제할 수 있습니다.' });
+      return;
+    }
+    const targets = inventory.filter((item) => ids.includes(item.id));
+    if (targets.length !== ids.length) {
+      setAlertModal({ title: '삭제 실패', message: '삭제 대상 품목을 모두 찾을 수 없습니다. 목록을 새로고침해 주세요.' });
+      return;
+    }
+    if (targets.some((item) => Math.round(Number(item.currentStock) || 0) !== 0)) {
+      setAlertModal({
+        title: '삭제 불가',
+        message: '현재고가 0이 아닌 품목이 포함되어 있습니다. 생존 품목으로 병합하거나 먼저 정산해 주세요.',
+      });
+      return;
+    }
+
     realtimePausedRef.current = true;
     try {
       const deleteSet = new Set(ids);
       const updatedInventory = inventory.filter((i) => !deleteSet.has(i.id));
 
       setProgressModal({
-        title: '중복품목 삭제',
-        message: makeProgressMsg('DB에 반영 중입니다. 잠시만 기다려 주세요.'),
+        title: '중복 제외품목 영구삭제',
+        message: makeProgressMsg('현재고와 연결 이력을 확인한 뒤 원자적으로 삭제합니다.'),
       });
 
-      const result = await api.migrateData({ inventory: updatedInventory, transactions });
-
-      if (result.inventoryCount !== updatedInventory.length) {
-        throw new Error(
-          `서버 저장 건수 불일치 (품목 ${result.inventoryCount}/${updatedInventory.length})`
-        );
-      }
+      const result = await api.deleteExcludedItems(ids, {
+        userId: user.id,
+        token: localStorage.getItem('session_token') || '',
+      });
 
       setInventory(updatedInventory);
+      setTransactions((current) => current.filter((tx) => !deleteSet.has(tx.itemId)));
       setProgressModal(null);
-      ActionLogger.log('Duplicate Items Deleted', { count: ids.length });
-      setSuccessMessage(`${ids.length}개 중복 품목이 삭제되었습니다.`);
+      ActionLogger.log('Duplicate Items Permanently Deleted', {
+        count: result.deletedItems,
+        deletedTransactions: result.deletedTransactions,
+      });
+      setSuccessMessage(`${result.deletedItems}개 품목과 수불 이력 ${result.deletedTransactions}건을 영구삭제했습니다.`);
       setShowSuccessModal(true);
     } catch (e) {
       console.error('Delete duplicates failed:', e);
@@ -1115,14 +1169,27 @@ export function useAppHandlers(state: AppState) {
     inventory: InventoryItem[];
     transactions: InventoryTransaction[];
     masterData?: MasterData;
+    zoneArchives?: ZoneArchiveData[];
+    zoneArchivesIncluded?: boolean;
   }) => {
     realtimePausedRef.current = true;
     try {
       await runWithProgress(
         'DB 전체 복구',
-        makeProgressMsg('품목·수불 거래·기준정보를 서버에 복구하고 있습니다.'),
+        makeProgressMsg('품목·수불 거래·기준정보·ZONE 아카이브를 서버에 복구하고 있습니다.'),
         async () => {
-          const result = await api.migrateData(data);
+          if (data.zoneArchivesIncluded) {
+            if (!user || user.role !== 'admin') throw new Error('ZONE 아카이브 복구에는 관리자 로그인이 필요합니다.');
+            await api.replaceZoneArchivesFromBackup(data.zoneArchives || [], {
+              userId: user.id,
+              token: localStorage.getItem('session_token') || '',
+            });
+          }
+          const result = await api.migrateData({
+            inventory: data.inventory,
+            transactions: data.transactions,
+            masterData: data.masterData,
+          });
           if (
             result.inventoryCount !== data.inventory.length ||
             result.transactionCount !== data.transactions.length
@@ -1136,7 +1203,10 @@ export function useAppHandlers(state: AppState) {
           if (data.masterData) setMasterData(data.masterData);
           setCurrentView('INVENTORY');
           setSuccessMessage(
-            `DB 복구 완료: 품목 ${data.inventory.length.toLocaleString()}건, 수불 거래 ${data.transactions.length.toLocaleString()}건`
+            `DB 복구 완료: 품목 ${data.inventory.length.toLocaleString()}건, 수불 거래 ${data.transactions.length.toLocaleString()}건` +
+            (data.zoneArchivesIncluded
+              ? `, 보관 ZONE ${(data.zoneArchives || []).length.toLocaleString()}개`
+              : '')
           );
           setShowSuccessModal(true);
           ActionLogger.log('System Restore Completed', {

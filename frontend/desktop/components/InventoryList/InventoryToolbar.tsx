@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Layers,
   ArrowRightLeft,
+  Archive,
 } from 'lucide-react';
 import { User } from '../../types';
 
@@ -39,6 +40,7 @@ interface InventoryToolbarProps {
   exportYear: number;
   setExportYear: (year: number) => void;
   onOpenSettlement: () => void;
+  onOpenZoneArchives: () => void;
   onOpenMonthlyReport: () => void;
   onOpenDBManager: () => void;
   onExportExcel: () => void;
@@ -71,6 +73,7 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
   exportYear,
   setExportYear,
   onOpenSettlement,
+  onOpenZoneArchives,
   onOpenMonthlyReport,
   onOpenDBManager,
   onExportExcel,
@@ -232,6 +235,15 @@ const InventoryToolbar: React.FC<InventoryToolbarProps> = ({
         >
           <ArrowRightLeft size={15} /> ZONE 반납·정산
         </button>
+        {user.role === 'admin' && (
+          <button
+            onClick={onOpenZoneArchives}
+            title="완료 ZONE을 마감하고 보관 이력을 조회합니다."
+            className="px-3 py-2 text-slate-600 border border-slate-300 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-800 rounded-lg flex items-center gap-1.5 text-sm font-bold transition-colors shadow-sm bg-white dark:bg-slate-800 whitespace-nowrap shrink-0"
+          >
+            <Archive size={15} /> ZONE 보관함
+          </button>
+        )}
 
         <button
           onClick={onOpenMonthlyReport}

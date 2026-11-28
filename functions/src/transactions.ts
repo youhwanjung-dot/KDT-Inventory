@@ -2,6 +2,7 @@ import { getAdmin } from './adminApp';
 const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { assertZoneWritable, assertZoneWritableInTransaction } from './operationGuards';
 
 const TX_COLLECTION = 'transactions';
 const INV_COLLECTION = 'inventory';
@@ -144,12 +145,14 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
         res.status(400).json({ error: 'itemId is required' });
         return;
       }
+      await assertZoneWritable(db, [tx.zoneId, tx.category]);
 
       const txId = tx.id || `TX-${Date.now()}`;
       const qty = toInt(tx.quantity);
       let currentStock = 0;
 
       await db.runTransaction(async (transaction: any) => {
+        await assertZoneWritableInTransaction(transaction, db, [tx.zoneId, tx.category]);
         const txRef = db.collection(TX_COLLECTION).doc(txId);
         const invRef = db.collection(INV_COLLECTION).doc(tx.itemId);
         const invDoc = await transaction.get(invRef);
@@ -196,6 +199,18 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
 
         const oldTx = txDoc.data()!;
         const newTx = { ...oldTx, ...updates, id: txId, quantity: toInt(updates.quantity ?? oldTx.quantity) };
+        await assertZoneWritableInTransaction(transaction, db, [
+          oldTx.zoneId,
+          oldTx.category,
+          newTx.zoneId,
+          newTx.category,
+        ]);
+        await assertZoneWritable(db, [
+          oldTx.zoneId,
+          oldTx.category,
+          newTx.zoneId,
+          newTx.category,
+        ]);
         const affectedItemIds = Array.from(new Set([oldTx.itemId, newTx.itemId].filter(Boolean)));
         const itemStateMap = new Map<string, { invDoc: any; txDocs: Array<{ ref: any; data: any }> }>();
 
@@ -271,6 +286,8 @@ export const transactions = onRequest({ cors: true }, async (req, res) => {
         }
 
         const tx = txDoc.data()!;
+        await assertZoneWritableInTransaction(transaction, db, [tx.zoneId, tx.category]);
+        await assertZoneWritable(db, [tx.zoneId, tx.category]);
         const invRef = db.collection(INV_COLLECTION).doc(tx.itemId);
         const txQuery = db.collection(TX_COLLECTION).where('itemId', '==', tx.itemId);
         const [invDoc, txSnap] = await Promise.all([

@@ -1,17 +1,22 @@
 import { utils } from 'xlsx';
 import type { WorkBook } from 'xlsx';
-import { InventoryItem, InventoryTransaction, MasterData } from '../../types';
+import { InventoryItem, InventoryTransaction, MasterData, ZoneArchiveData } from '../../types';
 
 export interface DatabaseBackupData {
   inventory: InventoryItem[];
   transactions: InventoryTransaction[];
   masterData: MasterData;
+  zoneArchives?: ZoneArchiveData[];
+  zoneArchivesIncluded?: boolean;
 }
 
 export interface DatabaseBackupCounts {
   inventory: number;
   transactions: number;
   masterDataEntries: number;
+  zoneArchives: number;
+  archivedInventory: number;
+  archivedTransactions: number;
 }
 
 const REQUIRED_SHEETS = ['DB_품목원본', 'DB_거래원본', 'DB_기준정보'];
@@ -67,6 +72,17 @@ export const parseDatabaseBackupWorkbook = (
   const rawInventory = readJsonRecords(workbook, 'DB_품목원본');
   const rawTransactions = readJsonRecords(workbook, 'DB_거래원본');
   const rawMasterEntries = readJsonRecords(workbook, 'DB_기준정보');
+  const archiveHeaderSheet = workbook.Sheets['DB_ZONE아카이브'];
+  const archiveDataSheet = workbook.Sheets['DB_ZONE아카이브원본'];
+  if (Boolean(archiveHeaderSheet) !== Boolean(archiveDataSheet)) {
+    throw new Error('ZONE 아카이브 복구 시트가 일부 누락되었습니다.');
+  }
+  const rawArchiveHeaders = archiveHeaderSheet
+    ? readJsonRecords(workbook, 'DB_ZONE아카이브')
+    : [];
+  const rawArchiveRows = archiveDataSheet
+    ? readJsonRecords(workbook, 'DB_ZONE아카이브원본')
+    : [];
 
   if (!rawInventory.every((item) =>
     isObject(item) &&
@@ -95,9 +111,6 @@ export const parseDatabaseBackupWorkbook = (
   for (const tx of transactions) {
     if (txIds.has(tx.id)) throw new Error(`거래 원본에 중복 ID가 있습니다: ${tx.id}`);
     txIds.add(tx.id);
-    if (!itemIds.has(tx.itemId)) {
-      throw new Error(`거래 ${tx.id}가 연결할 품목 ID(${tx.itemId})를 찾을 수 없습니다.`);
-    }
   }
 
   const masterDataRecord = Object.fromEntries(rawMasterEntries.map((entry) => {
@@ -112,16 +125,68 @@ export const parseDatabaseBackupWorkbook = (
     throw new Error('기준정보 원본에 필수 항목(categories, namesByCategory, nameOrder)이 없습니다.');
   }
 
+  const archivesById = new Map<string, ZoneArchiveData>();
+  for (const entry of rawArchiveHeaders) {
+    if (!isObject(entry) ||
+        typeof entry.id !== 'string' ||
+        typeof entry.zoneId !== 'string' ||
+        typeof entry.displayName !== 'string' ||
+        (entry.status !== 'ARCHIVED' && entry.status !== 'RESTORED')) {
+      throw new Error('ZONE 아카이브 목록에 필수 항목이 없거나 상태가 올바르지 않습니다.');
+    }
+    if (archivesById.has(entry.id)) throw new Error(`중복 아카이브 ID가 있습니다: ${entry.id}`);
+    archivesById.set(entry.id, {
+      ...(entry as unknown as ZoneArchiveData),
+      inventory: [],
+      transactions: [],
+    });
+  }
+  for (const entry of rawArchiveRows) {
+    if (!isObject(entry) ||
+        typeof entry.archiveId !== 'string' ||
+        !isObject(entry.record) ||
+        (entry.recordType !== 'inventory' && entry.recordType !== 'transaction')) {
+      throw new Error('ZONE 아카이브 원본 행의 형식이 올바르지 않습니다.');
+    }
+    const archive = archivesById.get(entry.archiveId);
+    if (!archive) throw new Error(`아카이브 원본이 목록에 없습니다: ${entry.archiveId}`);
+    if (entry.recordType === 'inventory') {
+      if (typeof entry.record.id !== 'string' || typeof entry.record.name !== 'string') {
+        throw new Error(`아카이브 품목 원본이 올바르지 않습니다: ${entry.archiveId}`);
+      }
+      archive.inventory.push(entry.record as unknown as InventoryItem);
+    } else {
+      if (typeof entry.record.id !== 'string' ||
+          typeof entry.record.itemId !== 'string' ||
+          !Number.isFinite(Number(entry.record.quantity))) {
+        throw new Error(`아카이브 수불 원본이 올바르지 않습니다: ${entry.archiveId}`);
+      }
+      archive.transactions.push(entry.record as unknown as InventoryTransaction);
+    }
+  }
+  for (const archive of archivesById.values()) {
+    if (archive.inventory.length !== Number(archive.itemCount) ||
+        archive.transactions.length !== Number(archive.transactionCount)) {
+      throw new Error(`아카이브 ${archive.displayName}의 원본 건수가 일치하지 않습니다.`);
+    }
+  }
+  const zoneArchives = Array.from(archivesById.values());
+
   return {
     data: {
       inventory,
       transactions,
       masterData: masterDataRecord as unknown as MasterData,
+      zoneArchives,
+      zoneArchivesIncluded: Boolean(archiveHeaderSheet && archiveDataSheet),
     },
     counts: {
       inventory: inventory.length,
       transactions: transactions.length,
       masterDataEntries: rawMasterEntries.length,
+      zoneArchives: zoneArchives.length,
+      archivedInventory: zoneArchives.reduce((sum, archive) => sum + archive.inventory.length, 0),
+      archivedTransactions: zoneArchives.reduce((sum, archive) => sum + archive.transactions.length, 0),
     },
   };
 };

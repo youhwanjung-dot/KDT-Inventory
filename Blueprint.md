@@ -7,7 +7,7 @@
 
 | Flag | 현재 값 | 설명 |
 |---|---|---|
-| `VERSION_MODE` | `1.4.10` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.4.12` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | `false` | `true` 전환 시 초기 목업 데이터 분기 동작 (코드 보존) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore (`asia-northeast3` 서울) / 로컬 분기 보존 |
 

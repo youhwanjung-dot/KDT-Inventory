@@ -481,8 +481,15 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ onImport, onRestore, onCancel
                             <p>품목: {restoreConfirmation.counts.inventory.toLocaleString()}건</p>
                             <p>수불 거래: {restoreConfirmation.counts.transactions.toLocaleString()}건</p>
                             <p>기준정보 항목: {restoreConfirmation.counts.masterDataEntries.toLocaleString()}건</p>
+                            {restoreConfirmation.data.zoneArchivesIncluded && (
+                                <p>
+                                    보관 ZONE: {restoreConfirmation.counts.zoneArchives.toLocaleString()}개
+                                    {' '}({restoreConfirmation.counts.archivedInventory.toLocaleString()} 품목 /{' '}
+                                    {restoreConfirmation.counts.archivedTransactions.toLocaleString()} 수불)
+                                </p>
+                            )}
                             <p className="text-xs text-slate-500">
-                                일반 일괄등록의 전 ZONE 품목 자동 보충은 실행하지 않습니다.
+                                보관 시트가 있는 백업은 아카이브도 교체합니다. 기존 형식 백업은 현재 아카이브를 유지합니다.
                             </p>
                         </div>
                     }

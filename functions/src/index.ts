@@ -24,6 +24,9 @@ export { inventory } from './inventory';
 // Transaction CRUD Functions
 export { transactions } from './transactions';
 
+// Read-only closed-ZONE archives and restore workflow
+export { zoneArchives } from './zoneArchives';
+
 // Migration (DB Reset / Restore)
 export { migration } from './migration';
 

@@ -2,6 +2,7 @@ import { getAdmin } from './adminApp';
 const admin: any = new Proxy({}, { get: (_t, prop) => getAdmin()[prop] });
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
+import { assertZoneWritable } from './operationGuards';
 
 const COLLECTION = 'masterData';
 const DOC_ID = 'custom';
@@ -35,6 +36,10 @@ export const masterData = onRequest({ cors: true }, async (req, res) => {
       const namesByCategory = data?.namesByCategory && typeof data.namesByCategory === 'object' ? data.namesByCategory : {};
       const nameOrder = Array.isArray(data?.nameOrder) ? data.nameOrder : [];
       const zoneMeta = data?.zoneMeta && typeof data.zoneMeta === 'object' ? data.zoneMeta : undefined;
+      await assertZoneWritable(db, [
+        ...categories,
+        ...Object.values(zoneMeta || {}).map((zone: any) => zone?.zoneId),
+      ]);
 
       const payload: Record<string, any> = {
         categories,
@@ -53,8 +58,8 @@ export const masterData = onRequest({ cors: true }, async (req, res) => {
     }
 
     res.status(405).json({ error: 'Method not allowed' });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('masterData error', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(Number(error?.status) || 500).json({ error: error?.message || 'Internal server error' });
   }
 });

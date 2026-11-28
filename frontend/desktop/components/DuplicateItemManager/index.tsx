@@ -416,9 +416,10 @@ const DuplicateItemManager: React.FC<DuplicateItemManagerProps> = ({
                     <br />
                     {confirmGroup.members.some((m) => confirmAction.ids.includes(m.id) && (txCountById.get(m.id) || 0) > 0) && (
                       <span className="text-red-600 dark:text-red-400 block mt-1">
-                        ⚠ 트랜잭션이 있는 품목이 포함되어 있습니다. 이력이 손실될 수 있으니 병합을 권장합니다.
+                        연결된 수불 이력도 영구삭제됩니다. 이력을 보존하려면 생존 품목으로 병합하세요.
                       </span>
                     )}
+                    <span className="block mt-1">현재고가 0인 품목만 삭제할 수 있습니다.</span>
                   </>
                 )}
               </p>

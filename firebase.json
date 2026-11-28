@@ -15,6 +15,20 @@
     ],
     "rewrites": [
       {
+        "source": "/api/zone-archives",
+        "function": {
+          "functionId": "zoneArchives",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/zone-archives/**",
+        "function": {
+          "functionId": "zoneArchives",
+          "region": "asia-northeast3"
+        }
+      },
+      {
         "source": "/masterData",
         "function": {
           "functionId": "masterData",

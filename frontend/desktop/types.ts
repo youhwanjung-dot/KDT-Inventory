@@ -65,6 +65,23 @@ export interface InventoryTransaction {
   currentStockSnapshot: number; // 거래 직후 재고 (EA)
 }
 
+export interface ZoneArchiveSummary {
+  id: string;
+  zoneId: string;
+  displayName: string;
+  status: 'ARCHIVED' | 'RESTORED';
+  itemCount: number;
+  transactionCount: number;
+  orphanTransactionCount: number;
+  archivedBy: string;
+  archivedAt?: any;
+}
+
+export interface ZoneArchiveData extends ZoneArchiveSummary {
+  inventory: InventoryItem[];
+  transactions: InventoryTransaction[];
+}
+
 export type ViewState = 'DASHBOARD' | 'INVENTORY' | 'ANALYSIS' | 'IMPORT' | 'HISTORY_IMPORT';
 
 export interface DashboardStats {

@@ -3,7 +3,8 @@ import { Loader2 } from 'lucide-react';
 import ReportModal from '../ReportModal';
 import ConfirmationModal from '../ConfirmationModal';
 import { ActionLogger } from '../../utils/logger';
-import { formatItemDisplayKey, roundToInt } from '../../utils/formatters';
+import { api } from '../../utils/api';
+import { roundToInt } from '../../utils/formatters';
 import {
   DEFAULT_WIDTHS,
   InventoryColWidths,
@@ -14,6 +15,7 @@ import { exportInventoryToExcel } from './excelExport';
 import InventoryToolbar, { InventoryViewMode } from './InventoryToolbar';
 import InventoryTable from './InventoryTable';
 import ZoneSettlementModal from './ZoneSettlementModal';
+import ZoneArchiveManagerModal from './ZoneArchiveManagerModal';
 
 const InventoryList: React.FC<InventoryListProps> = ({
   items,
@@ -40,6 +42,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
   const [exportYear, setExportYear] = useState<number>(new Date().getFullYear());
 
   const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [showZoneArchives, setShowZoneArchives] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showLayoutReset, setShowLayoutReset] = useState(false);
   const [alertModal, setAlertModal] = useState<{ title: string; message: React.ReactNode } | null>(null);
@@ -146,6 +149,15 @@ const InventoryList: React.FC<InventoryListProps> = ({
     });
   }, [items, masterData, categoryOrderMap]);
 
+  const archiveCategories = useMemo(
+    () => Array.from(new Set([
+      ...uniqueCategories,
+      ...(masterData.categories || []),
+      ...transactions.map((tx) => tx.category).filter(Boolean),
+    ])),
+    [masterData.categories, transactions, uniqueCategories]
+  );
+
   const filteredItems = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     const filtered = items.filter((item) => {
@@ -178,28 +190,43 @@ const InventoryList: React.FC<InventoryListProps> = ({
       if (ordCatA !== undefined && ordCatB !== undefined && ordCatA !== ordCatB) return ordCatA - ordCatB;
       if (ordCatA !== undefined) return -1;
       if (ordCatB !== undefined) return 1;
-      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      if (a.category !== b.category) return a.category.localeCompare(b.category, 'ko', { numeric: true });
 
-      const catNameMap = namesByCategoryOrderMap.get(a.category);
-      if (catNameMap) {
-        const ordNameA = catNameMap.get(formatItemDisplayKey(a)) ?? catNameMap.get(a.name);
-        const ordNameB = catNameMap.get(formatItemDisplayKey(b)) ?? catNameMap.get(b.name);
-        if (ordNameA !== undefined && ordNameB !== undefined && ordNameA !== ordNameB) return ordNameA - ordNameB;
-        if (ordNameA !== undefined) return -1;
-        if (ordNameB !== undefined) return 1;
-      }
-      return formatItemDisplayKey(a).localeCompare(formatItemDisplayKey(b));
+      const nameOrder = (a.name || '').trim().localeCompare((b.name || '').trim(), 'ko', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (nameOrder !== 0) return nameOrder;
+
+      const platingOrder = (a.plating || '').trim().localeCompare((b.plating || '').trim(), 'ko', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (platingOrder !== 0) return platingOrder;
+
+      const specOrder = (a.spec || '').trim().localeCompare((b.spec || '').trim(), 'ko', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (specOrder !== 0) return specOrder;
+
+      return a.id.localeCompare(b.id);
     });
-  }, [items, searchTerm, selectedCategories, showOnlyLowStock, categoryOrderMap, namesByCategoryOrderMap]);
+  }, [items, searchTerm, selectedCategories, showOnlyLowStock, categoryOrderMap]);
 
   const handleExportExcel = async () => {
     ActionLogger.log('KDT Excel Export Initiated', { targetYear: exportYear });
     try {
       setIsExporting(true);
+      const archiveSummaries = await api.getZoneArchives();
+      const zoneArchives = await Promise.all(
+        archiveSummaries.map((archive) => api.getZoneArchive(archive.id))
+      );
       const { unassignedCount, fileName, targetYear } = await exportInventoryToExcel({
         items,
         transactions,
         masterData,
+        zoneArchives,
         selectedCategories,
         categoryOrderMap,
         namesByCategoryOrderMap,
@@ -254,6 +281,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
           exportYear={exportYear}
           setExportYear={setExportYear}
           onOpenSettlement={() => setShowSettlementModal(true)}
+          onOpenZoneArchives={() => setShowZoneArchives(true)}
           onOpenMonthlyReport={onOpenMonthlyReport}
           onOpenDBManager={onOpenDBManager}
           onExportExcel={handleExportExcel}
@@ -298,10 +326,21 @@ const InventoryList: React.FC<InventoryListProps> = ({
         <ZoneSettlementModal
           items={items}
           categories={uniqueCategories}
+          masterData={masterData}
           currentUser={user}
           initialZone={selectedCategories[0] || uniqueCategories[0]}
           onCompleted={(msg) => setAlertModal({ title: 'ZONE 정산 완료', message: msg })}
           onClose={() => setShowSettlementModal(false)}
+        />
+      )}
+      {showZoneArchives && user.role === 'admin' && (
+        <ZoneArchiveManagerModal
+          categories={archiveCategories}
+          inventory={items}
+          masterData={masterData}
+          currentUser={user}
+          onClose={() => setShowZoneArchives(false)}
+          onCompleted={(msg) => setAlertModal({ title: 'ZONE 보관 처리', message: msg })}
         />
       )}
       {showReport && (
