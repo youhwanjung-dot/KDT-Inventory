@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { X, Printer, Search } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
-import { InventoryItem, InventoryTransaction, MasterData } from '../types';
+import { InventoryItem, InventoryTransaction, MasterData, ZoneArchiveData } from '../types';
 import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY } from '../constants';
+import { api } from '../utils/api';
+import { compareCategoryWithOrder, compareInventoryItems, sortInventoryItems } from '../utils/inventorySort';
 
 interface MonthlyUsageReportModalProps {
   items: InventoryItem[];
@@ -54,6 +56,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
   const [activeOnly, setActiveOnly] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [labels, setLabels] = useState<Record<string, string>>({});
+  const [archivedUsageData, setArchivedUsageData] = useState<ZoneArchiveData[]>([]);
 
   const contentRef = useRef<HTMLDivElement>(null);
   const [previewScale, setPreviewScale] = useState(0.5);
@@ -78,6 +81,28 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
   const getLabel = (key: string, defaultValue: string) => labels[key] || defaultValue;
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadArchivedUsageData = async () => {
+      try {
+        const summaries = await api.getZoneArchives();
+        const archivedSummaries = summaries.filter((archive) => archive.status === 'ARCHIVED');
+        const archives = await Promise.all(
+          archivedSummaries.map((archive) => api.getZoneArchive(archive.id))
+        );
+        if (isMounted) setArchivedUsageData(archives);
+      } catch {
+        if (isMounted) setArchivedUsageData([]);
+      }
+    };
+
+    void loadArchivedUsageData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const updatePreviewScale = () => {
       const availableWidth = Math.max(0, window.innerWidth - 32);
       const availableHeight = Math.max(0, window.innerHeight - 180);
@@ -90,37 +115,70 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     return () => window.removeEventListener('resize', updatePreviewScale);
   }, []);
 
-  useEffect(() => {
-    if (viewMode === 'ZONE' && !masterData.categories.includes(selectedZone)) {
-      setSelectedZone(masterData.categories[0] || '');
-    }
-  }, [viewMode, masterData.categories, selectedZone]);
-
-  const nameOrderMap = useMemo(() => {
+  const categoryOrderMap = useMemo(() => {
     const map = new Map<string, number>();
-    let globalIdx = 0;
-    masterData.categories.forEach((cat) => {
-      (masterData.namesByCategory[cat] || []).forEach((n) => {
-        if (!map.has(n)) {
-          map.set(n, globalIdx++);
-        }
-      });
-    });
-    masterData.nameOrder.forEach((n) => {
-      if (!map.has(n)) {
-        map.set(n, globalIdx++);
-      }
-    });
+    masterData.categories.forEach((category, index) => map.set(category, index));
     return map;
-  }, [masterData]);
+  }, [masterData.categories]);
+
+  const archivedZoneNames = useMemo(
+    () => archivedUsageData.map((archive) => archive.displayName),
+    [archivedUsageData]
+  );
+
+  const availableZones = useMemo(() => {
+    const names = Array.from(new Set([
+      ...masterData.categories,
+      ...archivedZoneNames,
+    ].filter(Boolean)));
+    return names.sort((a, b) => compareCategoryWithOrder(a, b, categoryOrderMap));
+  }, [masterData.categories, archivedZoneNames, categoryOrderMap]);
+
+  useEffect(() => {
+    if (viewMode === 'ZONE' && !availableZones.includes(selectedZone)) {
+      setSelectedZone(availableZones[0] || '');
+    }
+  }, [viewMode, availableZones, selectedZone]);
+
+  const archivedItems = useMemo(
+    () => archivedUsageData.flatMap((archive) =>
+      archive.inventory.map((item) => ({
+        ...item,
+        category: item.category || archive.displayName,
+        zoneId: item.zoneId || archive.zoneId,
+      }))
+    ),
+    [archivedUsageData]
+  );
+
+  const archivedTransactions = useMemo(
+    () => archivedUsageData.flatMap((archive) =>
+      archive.transactions.map((transaction) => ({
+        ...transaction,
+        category: transaction.category || archive.displayName,
+        zoneId: transaction.zoneId || archive.zoneId,
+      }))
+    ),
+    [archivedUsageData]
+  );
+
+  const usageItems = useMemo(
+    () => [...items, ...archivedItems],
+    [items, archivedItems]
+  );
+
+  const usageTransactions = useMemo(
+    () => [...transactions, ...archivedTransactions],
+    [transactions, archivedTransactions]
+  );
 
   // Extract transactions in the selected year using their date-only ISO prefix.
   const yearTxs = useMemo(() => {
-    return transactions.filter((tx) => {
+    return usageTransactions.filter((tx) => {
       if (tx.type !== 'IN' && tx.type !== 'OUT') return false;
       return String(tx.date || '').slice(0, 4) === String(selectedYear);
     });
-  }, [transactions, selectedYear]);
+  }, [usageTransactions, selectedYear]);
 
   // Create a map of items from transactions (to support deleted items with historical usage)
   const txItemsMap = useMemo(() => {
@@ -156,7 +214,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     }>();
 
     // 1. Add current inventory items
-    items.forEach((item) => {
+    usageItems.forEach((item) => {
       itemsMap.set(item.id, {
         id: item.id,
         name: item.name,
@@ -174,12 +232,13 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     });
 
     return Array.from(itemsMap.values());
-  }, [items, txItemsMap]);
+  }, [usageItems, txItemsMap]);
 
   // Usage views aggregate OUT quantities by item definition, optionally scoped to one ZONE.
   const reportData = useMemo(() => {
     type UsageRow = {
       id: string;
+      category: string;
       name: string;
       plating: string;
       spec: string;
@@ -196,12 +255,26 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     const categoryByItemId = new Map(mergedItems.map((item) => [item.id, item.category]));
     const firstMonth = viewMode === 'MONTHLY' ? selectedMonth : viewMode === 'ZONE' ? startMonth : 1;
     const lastMonth = viewMode === 'MONTHLY' ? selectedMonth : viewMode === 'ZONE' ? endMonth : 12;
+    const chooseCategory = (currentCategory: string, nextCategory: string) => {
+      if (!currentCategory) return nextCategory;
+      if (!nextCategory) return currentCategory;
+      return compareCategoryWithOrder(nextCategory, currentCategory, categoryOrderMap) < 0
+        ? nextCategory
+        : currentCategory;
+    };
 
-    const ensureRow = (key: string, name: string, plating = '', spec = '') => {
+    const ensureRow = (
+      key: string,
+      category: string,
+      name: string,
+      plating = '',
+      spec = '',
+    ) => {
       let row = rows.get(key);
       if (!row) {
         row = {
           id: key,
+          category,
           name,
           plating,
           spec,
@@ -209,6 +282,8 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
           totalOut: 0,
         };
         rows.set(key, row);
+      } else {
+        row.category = chooseCategory(row.category, category);
       }
       return row;
     };
@@ -220,7 +295,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     scopedItems.forEach((item) => {
       const key = definitionKey(item.name, item.plating, item.spec);
       keyByItemId.set(item.id, key);
-      ensureRow(key, item.name, item.plating || '', item.spec || '');
+      ensureRow(key, item.category || '기타', item.name, item.plating || '', item.spec || '');
     });
 
     yearTxs.forEach((tx) => {
@@ -232,8 +307,9 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
       ) return;
 
       const name = tx.itemName || tx.itemId;
+      const category = categoryByItemId.get(tx.itemId) || tx.category || '기타';
       const key = keyByItemId.get(tx.itemId) || definitionKey(name, tx.plating, tx.spec);
-      const row = ensureRow(key, name, tx.plating || '', tx.spec || '');
+      const row = ensureRow(key, category, name, tx.plating || '', tx.spec || '');
       if (tx.type === 'OUT' && monthIndex >= 0 && monthIndex < 12) {
         row.monthsUsage[monthIndex] += Number(tx.quantity) || 0;
       }
@@ -255,18 +331,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
       return matchesSearch && matchesActive;
     });
 
-    return filtered.sort((a, b) => {
-      const orderNameA = nameOrderMap.get(a.name);
-      const orderNameB = nameOrderMap.get(b.name);
-      if (orderNameA !== undefined && orderNameB !== undefined && orderNameA !== orderNameB) {
-        return orderNameA - orderNameB;
-      }
-      if (orderNameA !== undefined && orderNameB === undefined) return -1;
-      if (orderNameA === undefined && orderNameB !== undefined) return 1;
-      return a.name.localeCompare(b.name) ||
-        a.plating.localeCompare(b.plating) ||
-        a.spec.localeCompare(b.spec);
-    });
+    return sortInventoryItems(filtered, categoryOrderMap);
   }, [
     viewMode,
     selectedMonth,
@@ -277,7 +342,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     yearTxs,
     activeOnly,
     searchTerm,
-    nameOrderMap,
+    categoryOrderMap,
   ]);
 
   // Match the monthly ledger's carry-over and historical stock calculation.
@@ -290,6 +355,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
       plating: string;
       spec: string;
       category: string;
+      sortCategory: string;
       unit: string;
       location: string;
       startStock: number;
@@ -303,11 +369,11 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     const startDate = `${selectedYear}-${String(firstMonth).padStart(2, '0')}-01`;
     const endDate = new Date(Date.UTC(selectedYear, lastMonth, 1)).toISOString().slice(0, 10);
     const scopedItems = viewMode === 'ZONE'
-      ? items.filter((item) => item.category === selectedZone)
-      : items;
+      ? usageItems.filter((item) => item.category === selectedZone)
+      : usageItems;
     const transactionsByItemId = new Map<string, InventoryTransaction[]>();
 
-    transactions.forEach((tx) => {
+    usageTransactions.forEach((tx) => {
       const itemTransactions = transactionsByItemId.get(tx.itemId) || [];
       itemTransactions.push(tx);
       transactionsByItemId.set(tx.itemId, itemTransactions);
@@ -324,6 +390,13 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
         (sum, tx) => sum + (tx.type === 'IN' ? Number(tx.quantity) || 0 : -(Number(tx.quantity) || 0)),
         0
       );
+    const chooseCategory = (currentCategory: string, nextCategory: string) => {
+      if (!currentCategory) return nextCategory;
+      if (!nextCategory) return currentCategory;
+      return compareCategoryWithOrder(nextCategory, currentCategory, categoryOrderMap) < 0
+        ? nextCategory
+        : currentCategory;
+    };
 
     scopedItems.forEach((item) => {
       const key = definitionKey(item.name, item.plating, item.spec);
@@ -371,6 +444,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
         plating: item.plating || '',
         spec: item.spec || '',
         category: viewMode === 'ZONE' ? selectedZone : '전체 ZONE',
+        sortCategory: item.category || '기타',
         unit: 'EA',
         location: '',
         startStock: 0,
@@ -378,6 +452,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
         totalOut: 0,
         endStock: 0,
       };
+      row.sortCategory = chooseCategory(row.sortCategory, item.category || '기타');
       row.startStock += roundedStartStock;
       row.totalIn += totalIn;
       row.totalOut += totalOut;
@@ -407,18 +482,13 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
         const matchesActive = activeOnly ? row.totalIn > 0 || row.totalOut > 0 : true;
         return matchesSearch && matchesActive;
       })
-      .sort((a, b) => {
-        const orderNameA = nameOrderMap.get(a.name);
-        const orderNameB = nameOrderMap.get(b.name);
-        if (orderNameA !== undefined && orderNameB !== undefined && orderNameA !== orderNameB) {
-          return orderNameA - orderNameB;
-        }
-        if (orderNameA !== undefined && orderNameB === undefined) return -1;
-        if (orderNameA === undefined && orderNameB !== undefined) return 1;
-        return a.name.localeCompare(b.name) ||
-          a.plating.localeCompare(b.plating) ||
-          a.spec.localeCompare(b.spec);
-      });
+      .sort((a, b) =>
+        compareInventoryItems(
+          { ...a, category: a.sortCategory },
+          { ...b, category: b.sortCategory },
+          categoryOrderMap,
+        )
+      );
   }, [
     viewMode,
     selectedYear,
@@ -426,11 +496,11 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
     startMonth,
     endMonth,
     selectedZone,
-    items,
-    transactions,
+    usageItems,
+    usageTransactions,
     activeOnly,
     searchTerm,
-    nameOrderMap,
+    categoryOrderMap,
   ]);
 
   const displayedRows = viewMode === 'ANNUAL' ? reportData : stockReportData;
@@ -564,7 +634,7 @@ const MonthlyUsageReportModal: React.FC<MonthlyUsageReportModalProps> = ({
                 onChange={(e) => setSelectedZone(e.target.value)}
                 className="border border-slate-300 dark:border-slate-600 rounded px-2 py-1 text-sm bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white"
               >
-                {masterData.categories.map((category) => (
+                {availableZones.map((category) => (
                   <option key={category} value={category}>{category}</option>
                 ))}
               </select>

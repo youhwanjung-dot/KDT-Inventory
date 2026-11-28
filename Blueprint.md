@@ -7,9 +7,16 @@
 
 | Flag | 현재 값 | 설명 |
 |---|---|---|
-| `VERSION_MODE` | `1.4.12` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
+| `VERSION_MODE` | `1.4.17` | `Version.json` → Vite 빌드타임 주입 → 로그인 모달 표시 |
 | `MOCKUP_MODE` | `false` | `true` 전환 시 초기 목업 데이터 분기 동작 (코드 보존) |
 | `STORAGE_MODE` | `Cloud` | Firebase Firestore (`asia-northeast3` 서울) / 로컬 분기 보존 |
+
+### 1.1. 버전 및 스크립트 운영 원칙
+
+- 사소한 오류 수정도 **Z 레벨 증가**로 관리하며, 클린빌드 확인용 표시 버전은 반드시 새 버전으로 올린다.
+- 버그 버전은 백업 기준 버전으로 사용하지 않으며, 정상 확인된 다음 버전에서 백업을 다시 생성한다.
+- `_Cloud_run_KDT.bat`, `_Local_run_KDT.bat` 같은 **운영 빌드/배포 스크립트는 최적화 완료 자산으로 간주**하며, 사용자 명시 승인 없이 임의 수정하지 않는다.
+- 스크립트 검증이나 운영 안전장치가 필요하면 **Blueprint/Task/QmA 등 문서에 먼저 규칙을 기록**하고, 스크립트 자체 수정은 별도 승인 후 진행한다.
 
 ---
 
@@ -144,7 +151,7 @@ KDT-Inventory_3500/
 | `types.ts` / `formatters.ts` | 모든 재고·수불은 **정수 EA 단일 기준**, 고정 소포장(`SET`/`BOX`)은 `eaPerUnit` 환산 병기 (`22,000 EA (11,000 SET)`). 현재고 정합성은 최신 `재고이월` 이후 입고 합계에서 출고 합계를 차감해 판단하며, 입고 이력 없이 출고만 기록된 음수 재고는 허용하고 이력과의 일치 여부로 검증. 2차 과제용 `qtyPerProduct`, `setGroup`, `zoneMeta.plannedProductionQty` 필드 선반영 |
 | `MasterDataManagerModal` / `migration.ts` | 서버 즉시 동기화 시 전체 재고·거래를 마이그레이션으로 재저장. 거래는 `itemId`로 현재 품목을 찾아 `itemName`만 동기화하며, 연결 품목이 없는 과거 이력은 변경하지 않음 |
 | `AppLayout` | 모든 사용자가 `재고현황` 목록에 접근할 수 있도록 사이드 메뉴에 추가. 사이드바 사용현황은 월간·연간·ZONE별 전용 보고서로 연결하고, 상단 `MonthlyReportModal`은 ZONE별 월간 수불부로 분리. 일괄등록·수불부 등록은 관리자만 노출하고 권한 없는 저장 화면 접근을 차단 |
-| `ReportModal` / `MonthlyUsageReportModal` | 재고현황 및 사용현황 보고서의 미리보기·인쇄를 A3 세로로 설정하고 페이지당 40행으로 최적화. 재고현황은 ZONE 단위로 페이지를 구분하고 실제 품목이 40개 미만이면 빈 슬롯 행을 추가해 정확히 40행을 채움(행 높이 33px). 사이드바 사용현황 월간은 전체 ZONE의 품목별 기초재고·입고·출고·기말재고를 합산하고, ZONE별은 선택 ZONE·기간의 같은 재고 흐름을 표시. 연간은 전체 ZONE의 `품명+도금+규격`별 월간 출고량만 표시. 상단 `MonthlyReportModal`은 ZONE별 월간 수불부를 유지. `InventoryReport`도 A3 세로 사용 |
+| `ReportModal` / `MonthlyUsageReportModal` | 재고현황 및 사용현황 보고서의 미리보기·인쇄를 A3 세로로 설정하고 페이지당 40행으로 최적화. 재고현황은 ZONE 단위로 페이지를 구분하고 실제 품목이 40개 미만이면 빈 슬롯 행을 추가해 정확히 40행을 채움(행 높이 33px). 사이드바 사용현황 월간은 전체 ZONE의 품목별 기초재고·입고·출고·기말재고를 합산하고, ZONE별은 선택 ZONE·기간의 같은 재고 흐름을 표시. 연간은 전체 ZONE의 `품명+도금+규격`별 월간 출고량만 표시. 상단 `MonthlyReportModal`은 ZONE별 월간 수불부를 유지. `InventoryReport`도 A3 세로 사용. 재고현황/보고서/Excel은 공용 정렬 유틸로 `대분류 → 품명 → 도금 → 규격` 규칙을 공유 |
 | `users.ts` / `auth.ts` / `UserManagerModal` | 관리자(`ALL`), 김수현 팀장(`IN_ONLY` 입고전용), 현장 반장·조장·계장 4명(`OUT_ONLY` 출고전용) 권한 분리 |
 | `TransactionModal.tsx` | 로그인 사용자 `txPermission`에 따라 입고 또는 출고 탭/버튼 비활성화 (Phase 3 반영) |
 | `InventoryList` | Rule 5(1,000라인 초과 폴더 분리) 준수 리팩토링 완료. Excel 내보내기는 ZONE별 40개 단위로 수불 시트를 늘리고 Main 요약도 대응하는 40행 블록을 생성해 전체 품목·수불을 연결. 기준정보 ZONE명 동기화 및 인쇄 배율 40% 적용 |

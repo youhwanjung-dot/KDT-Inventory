@@ -1,5 +1,5 @@
 ﻿import React, { useState, useMemo } from 'react';
-import { X, ArrowRightLeft, RotateCcw, CheckSquare, Square, Loader2, AlertCircle, Archive } from 'lucide-react';
+import { X, ArrowRightLeft, RotateCcw, CheckSquare, Square, Loader2, AlertCircle } from 'lucide-react';
 import { InventoryItem, InventoryTransaction, MasterData, User } from '../../types';
 import { formatInteger, roundToInt } from '../../utils/formatters';
 import { api } from '../../utils/api';
@@ -36,7 +36,6 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
-  const [showArchiveConfirmation, setShowArchiveConfirmation] = useState(false);
 
   // Items in sourceZone that currently have remaining stock > 0
   const zoneItemsWithStock = useMemo(() => {
@@ -48,6 +47,12 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
     [items, sourceZone]
   );
   const isZeroBalanceZone = zoneItemsWithNonZeroStock.length === 0;
+
+  React.useEffect(() => {
+    if (isZeroBalanceZone && mode !== 'RETURN') {
+      setMode('RETURN');
+    }
+  }, [isZeroBalanceZone, mode]);
 
   // Select all items with stock whenever sourceZone changes
   React.useEffect(() => {
@@ -104,12 +109,20 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
       setError('현재 상태 마감에 실패했습니다: ' + (e.message || String(e)));
     } finally {
       setIsProcessing(false);
-      setShowArchiveConfirmation(false);
     }
   };
 
   const handleExecute = async () => {
     setError('');
+    if (isZeroBalanceZone) {
+      if (currentUser.role !== 'admin') {
+        setError('관리자 계정에서만 ZONE 마감을 실행할 수 있습니다.');
+        return;
+      }
+      await handleCloseZoneAsIs();
+      return;
+    }
+
     const targets = zoneItemsWithStock.filter((i) => selectedIds.has(i.id));
     if (targets.length === 0) {
       setError('정산할 자재를 1개 이상 선택해 주세요.');
@@ -244,7 +257,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
         {/* Settings Bar */}
         <div className="p-5 bg-slate-50/70 dark:bg-slate-800/30 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(224px,1.1fr)_minmax(0,1fr)] gap-2.5">
-            <div className={`space-y-1 ${isZeroBalanceZone ? 'sm:col-span-3' : ''}`}>
+            <div className="space-y-1">
               <label className="text-xs font-bold text-slate-600 dark:text-slate-300">정산 대상 ZONE</label>
               <select
                 value={sourceZone}
@@ -259,47 +272,44 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
               </select>
             </div>
 
-            {!isZeroBalanceZone && (
-              <>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">정산 방식</label>
-                  <div className="grid grid-cols-2 gap-1 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => setMode('RETURN')}
-                      className={`px-1.5 py-1.5 text-xs font-bold whitespace-nowrap rounded-md flex items-center justify-center gap-1 transition-all ${
-                        mode === 'RETURN'
-                          ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      <RotateCcw size={13} /> ZONE 마감
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMode('TRANSFER')}
-                      className={`px-1.5 py-1.5 text-xs font-bold whitespace-nowrap rounded-md flex items-center justify-center gap-1 transition-all ${
-                        mode === 'TRANSFER'
-                          ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm'
-                          : 'text-slate-600 dark:text-slate-400'
-                      }`}
-                    >
-                      <ArrowRightLeft size={13} /> ZONE 이관
-                    </button>
-                  </div>
-                </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">정산 방식</label>
+              <div className="grid grid-cols-2 gap-1 bg-slate-200/70 dark:bg-slate-800 p-1 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setMode('RETURN')}
+                  className={`px-1.5 py-1.5 text-xs font-bold whitespace-nowrap rounded-md flex items-center justify-center gap-1 transition-all ${
+                    mode === 'RETURN'
+                      ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <RotateCcw size={13} /> ZONE 마감
+                </button>
+                <button
+                  type="button"
+                  onClick={() => !isZeroBalanceZone && setMode('TRANSFER')}
+                  disabled={isZeroBalanceZone}
+                  className={`px-1.5 py-1.5 text-xs font-bold whitespace-nowrap rounded-md flex items-center justify-center gap-1 transition-all disabled:opacity-40 ${
+                    mode === 'TRANSFER'
+                      ? 'bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <ArrowRightLeft size={13} /> ZONE 이관
+                </button>
+              </div>
+            </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-600 dark:text-slate-300">정산 일자</label>
-                  <input
-                    type="date"
-                    value={settleDate}
-                    onChange={(e) => setSettleDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  />
-                </div>
-              </>
-            )}
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">정산 일자</label>
+              <input
+                type="date"
+                value={settleDate}
+                onChange={(e) => setSettleDate(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+            </div>
           </div>
 
           {!isZeroBalanceZone && mode === 'TRANSFER' && (
@@ -350,7 +360,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
           {isZeroBalanceZone ? (
             <div className="text-center py-10 text-slate-500 dark:text-slate-400 text-sm">
               <p>선택한 ZONE({sourceZone})의 현재고가 0입니다.</p>
-              <p className="mt-1 text-xs">반납·이관 수불을 추가하지 않고 현재 상태 그대로 보관 마감할 수 있습니다.</p>
+              <p className="mt-1 text-xs">기존 정산 모달에서 바로 ZONE 마감을 실행할 수 있습니다.</p>
             </div>
           ) : zoneItemsWithStock.length === 0 ? (
             <div className="text-center py-10 text-amber-600 dark:text-amber-400 text-sm">
@@ -404,7 +414,7 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
         <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
           <span className="text-xs text-slate-500">
             {isZeroBalanceZone
-              ? '* 현재 상태 마감은 품목과 수불 이력을 보관 전용으로 옮깁니다.'
+              ? '* 현재고 0 ZONE은 추가 수불 없이 현재 상태로 마감합니다.'
               : '* 반납·이관 내역은 수불 이력에 자동 기록됩니다.'}
           </span>
           <div className="flex gap-2">
@@ -416,74 +426,32 @@ const ZoneSettlementModal: React.FC<ZoneSettlementModalProps> = ({
             >
               취소
             </button>
-            {isZeroBalanceZone ? (
-              currentUser.role === 'admin' ? (
-                <button
-                  type="button"
-                  onClick={() => setShowArchiveConfirmation(true)}
-                  disabled={isProcessing}
-                  className="px-5 py-2 text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-lg flex items-center gap-2 shadow disabled:opacity-50"
-                >
-                  {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Archive size={16} />}
-                  현재 상태로 마감
-                </button>
+            <button
+              type="button"
+              onClick={() => void handleExecute()}
+              disabled={
+                isProcessing ||
+                (isZeroBalanceZone
+                  ? currentUser.role !== 'admin'
+                  : selectedIds.size === 0 || zoneItemsWithStock.length === 0)
+              }
+              title={isZeroBalanceZone && currentUser.role !== 'admin' ? '관리자 계정에서만 ZONE 마감이 가능합니다.' : undefined}
+              className={`px-5 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow disabled:opacity-50 ${
+                mode === 'RETURN' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-orange-600 hover:bg-orange-700'
+              }`}
+            >
+              {isProcessing ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : mode === 'RETURN' ? (
+                <RotateCcw size={16} />
               ) : (
-                <button
-                  type="button"
-                  disabled
-                  title="관리자 계정에서만 ZONE 마감이 가능합니다."
-                  className="px-5 py-2 text-sm font-bold text-white bg-orange-600 rounded-lg flex items-center gap-2 shadow disabled:opacity-50"
-                >
-                  <Archive size={16} /> 관리자 마감 권한 필요
-                </button>
-              )
-            ) : (
-              <button
-                type="button"
-                onClick={handleExecute}
-                disabled={isProcessing || selectedIds.size === 0 || zoneItemsWithStock.length === 0}
-                className={`px-5 py-2 text-sm font-bold text-white rounded-lg flex items-center gap-2 shadow disabled:opacity-50 ${
-                  mode === 'RETURN' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700'
-                }`}
-              >
-                {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <ArrowRightLeft size={16} />}
-                {mode === 'RETURN'
-                  ? `선택 ${selectedIds.size}종 반납 정산 실행`
-                  : `선택 ${selectedIds.size}종 이관 정산 실행`}
-              </button>
-            )}
+                <ArrowRightLeft size={16} />
+              )}
+              {mode === 'RETURN' ? 'ZONE 마감' : 'ZONE 이관'}
+            </button>
           </div>
         </div>
       </div>
-      {showArchiveConfirmation && (
-        <div className="fixed inset-0 z-[90] bg-black/60 flex items-center justify-center p-4">
-          <div role="dialog" aria-modal="true" className="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-5 shadow-2xl">
-            <h3 className="font-bold text-slate-900 dark:text-white">현재 상태로 ZONE 마감</h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              {sourceZone}의 재고는 0입니다. 품목과 전체 수불 이력을 보관 전용으로 옮기고 활성 재고 목록에서 분리합니다.
-              수불 기록 자체는 삭제되지 않습니다.
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowArchiveConfirmation(false)}
-                disabled={isProcessing}
-                className="px-4 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg text-slate-700 dark:text-slate-300"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleCloseZoneAsIs()}
-                disabled={isProcessing}
-                className="px-4 py-2 text-sm font-bold rounded-lg bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50"
-              >
-                {isProcessing ? '처리 중...' : '확인 및 마감'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

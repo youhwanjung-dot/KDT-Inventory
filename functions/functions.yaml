@@ -30,6 +30,12 @@ endpoints:
       - asia-northeast3
     entryPoint: transactions
     httpsTrigger: {}
+  zoneArchives:
+    platform: gcfv2
+    region:
+      - asia-northeast3
+    entryPoint: zoneArchives
+    httpsTrigger: {}
   migration:
     platform: gcfv2
     region:

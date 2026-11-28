@@ -5,6 +5,7 @@ import ConfirmationModal from '../ConfirmationModal';
 import { ActionLogger } from '../../utils/logger';
 import { api } from '../../utils/api';
 import { roundToInt } from '../../utils/formatters';
+import { compareCategoryWithOrder, sortInventoryItems } from '../../utils/inventorySort';
 import {
   DEFAULT_WIDTHS,
   InventoryColWidths,
@@ -123,31 +124,13 @@ const InventoryList: React.FC<InventoryListProps> = ({
     return map;
   }, [masterData]);
 
-  const namesByCategoryOrderMap = useMemo(() => {
-    const catMap = new Map<string, Map<string, number>>();
-    masterData.categories.forEach((cat) => {
-      const nMap = new Map<string, number>();
-      (masterData.namesByCategory[cat] || []).forEach((n, idx) => nMap.set(n, idx));
-      catMap.set(cat, nMap);
-    });
-    return catMap;
-  }, [masterData]);
-
   const uniqueCategories = useMemo(() => {
     const set = new Set<string>();
-    masterData.categories.forEach((c) => set.add(c));
     items.forEach((item) => {
       if (item.category) set.add(item.category);
     });
-    return Array.from(set).sort((a, b) => {
-      const ordA = categoryOrderMap.get(a);
-      const ordB = categoryOrderMap.get(b);
-      if (ordA !== undefined && ordB !== undefined) return ordA - ordB;
-      if (ordA !== undefined) return -1;
-      if (ordB !== undefined) return 1;
-      return a.localeCompare(b);
-    });
-  }, [items, masterData, categoryOrderMap]);
+    return Array.from(set).sort((a, b) => compareCategoryWithOrder(a, b, categoryOrderMap));
+  }, [items, categoryOrderMap]);
 
   const archiveCategories = useMemo(
     () => Array.from(new Set([
@@ -184,34 +167,7 @@ const InventoryList: React.FC<InventoryListProps> = ({
       return matchesSearch && matchesCategory && matchesLowStock;
     });
 
-    return filtered.sort((a, b) => {
-      const ordCatA = categoryOrderMap.get(a.category);
-      const ordCatB = categoryOrderMap.get(b.category);
-      if (ordCatA !== undefined && ordCatB !== undefined && ordCatA !== ordCatB) return ordCatA - ordCatB;
-      if (ordCatA !== undefined) return -1;
-      if (ordCatB !== undefined) return 1;
-      if (a.category !== b.category) return a.category.localeCompare(b.category, 'ko', { numeric: true });
-
-      const nameOrder = (a.name || '').trim().localeCompare((b.name || '').trim(), 'ko', {
-        numeric: true,
-        sensitivity: 'base',
-      });
-      if (nameOrder !== 0) return nameOrder;
-
-      const platingOrder = (a.plating || '').trim().localeCompare((b.plating || '').trim(), 'ko', {
-        numeric: true,
-        sensitivity: 'base',
-      });
-      if (platingOrder !== 0) return platingOrder;
-
-      const specOrder = (a.spec || '').trim().localeCompare((b.spec || '').trim(), 'ko', {
-        numeric: true,
-        sensitivity: 'base',
-      });
-      if (specOrder !== 0) return specOrder;
-
-      return a.id.localeCompare(b.id);
-    });
+    return sortInventoryItems(filtered, categoryOrderMap);
   }, [items, searchTerm, selectedCategories, showOnlyLowStock, categoryOrderMap]);
 
   const handleExportExcel = async () => {
@@ -229,7 +185,6 @@ const InventoryList: React.FC<InventoryListProps> = ({
         zoneArchives,
         selectedCategories,
         categoryOrderMap,
-        namesByCategoryOrderMap,
         targetYear: exportYear,
       });
       setExportResult({

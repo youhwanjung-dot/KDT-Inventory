@@ -1,1 +1,1 @@
-{"version": "1.4.12", "VERSION_MODE": "1.4.12", "MOCKUP_MODE": false, "STORAGE_MODE": "Cloud", "comment": "Make inventory sorting deterministic by category order, then Korean natural ascending item name, plating, and specification; refine ZONE settlement labels and prevent button wrapping."}
+{"version": "1.4.17", "VERSION_MODE": "1.4.17", "MOCKUP_MODE": false, "STORAGE_MODE": "Cloud", "comment": "Include archived zones in usage reports without restoring them to active inventory data."}

@@ -5,6 +5,7 @@ import { InventoryItem, InventoryTransaction, MasterData } from '../types';
 import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY } from '../constants';
 import ConfirmationModal from './ConfirmationModal';
 import { roundToOneDecimal } from '../utils/formatters';
+import { compareCategoryWithOrder, sortInventoryItems } from '../utils/inventorySort';
 
 interface MonthlyReportModalProps {
   items: InventoryItem[];
@@ -94,12 +95,6 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
     return map;
   }, [masterData]);
 
-  const nameOrderMap = useMemo(() => {
-    const map = new Map<string, number>();
-    masterData.nameOrder.forEach((n, i) => map.set(n, i));
-    return map;
-  }, [masterData]);
-
   // --- Report Data Calculation ---
   const reportData = useMemo(() => {
     const startDate = `${selectedMonth}-01`;
@@ -155,27 +150,8 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
       };
     });
 
-    // Sort by Category then Name
-    return calculated.sort((a, b) => {
-      const orderCategoryA = categoryOrderMap.get(a.category);
-      const orderCategoryB = categoryOrderMap.get(b.category);
-      if (orderCategoryA !== undefined && orderCategoryB !== undefined && orderCategoryA !== orderCategoryB) {
-        return orderCategoryA - orderCategoryB;
-      }
-      if (orderCategoryA !== undefined && orderCategoryB === undefined) return -1;
-      if (orderCategoryA === undefined && orderCategoryB !== undefined) return 1;
-      if (a.category !== b.category) return a.category.localeCompare(b.category);
-
-      const orderNameA = nameOrderMap.get(a.name);
-      const orderNameB = nameOrderMap.get(b.name);
-      if (orderNameA !== undefined && orderNameB !== undefined && orderNameA !== orderNameB) {
-        return orderNameA - orderNameB;
-      }
-      if (orderNameA !== undefined && orderNameB === undefined) return -1;
-      if (orderNameA === undefined && orderNameB !== undefined) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [items, transactions, selectedMonth, categoryOrderMap, nameOrderMap]);
+    return sortInventoryItems(calculated, categoryOrderMap);
+  }, [items, transactions, selectedMonth, categoryOrderMap]);
 
   // Keep one fixed 40-slot page for every configured category.
   const pages = useMemo(() => {
@@ -183,12 +159,7 @@ const MonthlyReportModal: React.FC<MonthlyReportModalProps> = ({ items, transact
       ...masterData.categories,
       ...items.map(item => item.category).filter(Boolean)
     ])].sort((a, b) => {
-      const orderA = categoryOrderMap.get(a);
-      const orderB = categoryOrderMap.get(b);
-      if (orderA !== undefined && orderB !== undefined) return orderA - orderB;
-      if (orderA !== undefined) return -1;
-      if (orderB !== undefined) return 1;
-      return a.localeCompare(b);
+      return compareCategoryWithOrder(a, b, categoryOrderMap);
     });
     const pageCategories = categories.length > 0 ? categories : [''];
 

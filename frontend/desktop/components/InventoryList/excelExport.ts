@@ -2,6 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { InventoryItem, InventoryTransaction, MasterData, ZoneArchiveData } from '../../types';
 import { formatItemDisplayKey, roundToInt } from '../../utils/formatters';
+import { sortInventoryItems } from '../../utils/inventorySort';
 
 export interface ExportExcelParams {
   items: InventoryItem[];
@@ -10,7 +11,6 @@ export interface ExportExcelParams {
   zoneArchives?: ZoneArchiveData[];
   selectedCategories: string[];
   categoryOrderMap: Map<string, number>;
-  namesByCategoryOrderMap: Map<string, Map<string, number>>;
   targetYear?: number;
 }
 
@@ -86,7 +86,6 @@ export async function exportInventoryToExcel({
   zoneArchives = [],
   selectedCategories,
   categoryOrderMap,
-  namesByCategoryOrderMap,
   targetYear = new Date().getFullYear(),
 }: ExportExcelParams): Promise<ExportExcelResult> {
   const normalizeCategory = (v: string) => (v || '').trim();
@@ -127,27 +126,7 @@ export async function exportInventoryToExcel({
       ? items.filter((item) => selectedCategories.includes(item.category))
       : items;
 
-  const sortedExportItems = [...exportItems].sort((a, b) => {
-    const catA = categoryOrderMap.get(a.category);
-    const catB = categoryOrderMap.get(b.category);
-    if (catA !== undefined && catB !== undefined && catA !== catB) return catA - catB;
-    if (catA !== undefined && catB === undefined) return -1;
-    if (catA === undefined && catB !== undefined) return 1;
-    const catCmp = (a.category || '').localeCompare(b.category || '');
-    if (catCmp !== 0) return catCmp;
-
-    const catNameMap = namesByCategoryOrderMap.get(a.category);
-    if (catNameMap) {
-      const keyA = formatItemDisplayKey(a);
-      const keyB = formatItemDisplayKey(b);
-      const ordA = catNameMap.get(keyA) ?? catNameMap.get(a.name);
-      const ordB = catNameMap.get(keyB) ?? catNameMap.get(b.name);
-      if (ordA !== undefined && ordB !== undefined && ordA !== ordB) return ordA - ordB;
-      if (ordA !== undefined) return -1;
-      if (ordB !== undefined) return 1;
-    }
-    return normalizeText(formatItemDisplayKey(a)).localeCompare(normalizeText(formatItemDisplayKey(b)));
-  });
+  const sortedExportItems = sortInventoryItems(exportItems, categoryOrderMap);
 
   // 3. Load template workbook (cache-busted)
   const templateResponse = await fetch(`${import.meta.env.BASE_URL}template.xlsx?v=${Date.now()}`);

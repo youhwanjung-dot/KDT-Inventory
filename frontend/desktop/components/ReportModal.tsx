@@ -3,6 +3,7 @@ import { X, Printer } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { InventoryItem, MasterData } from '../types';
 import { DEFAULT_DB_FIELDS, FIELD_SETTINGS_KEY } from '../constants';
+import { sortInventoryItems } from '../utils/inventorySort';
 import ConfirmationModal from './ConfirmationModal';
 
 interface ReportModalProps {
@@ -81,33 +82,9 @@ const ReportModal: React.FC<ReportModalProps> = ({ items, masterData, onClose, c
     return map;
   }, [masterData]);
 
-  const nameOrderMap = useMemo(() => {
-    const map = new Map<string, number>();
-    masterData.nameOrder.forEach((n, i) => map.set(n, i));
-    return map;
-  }, [masterData]);
-
   const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => {
-      const orderCategoryA = categoryOrderMap.get(a.category);
-      const orderCategoryB = categoryOrderMap.get(b.category);
-      if (orderCategoryA !== undefined && orderCategoryB !== undefined && orderCategoryA !== orderCategoryB) {
-        return orderCategoryA - orderCategoryB;
-      }
-      if (orderCategoryA !== undefined && orderCategoryB === undefined) return -1;
-      if (orderCategoryA === undefined && orderCategoryB !== undefined) return 1;
-      if (a.category !== b.category) return a.category.localeCompare(b.category);
-
-      const orderNameA = nameOrderMap.get(a.name);
-      const orderNameB = nameOrderMap.get(b.name);
-      if (orderNameA !== undefined && orderNameB !== undefined && orderNameA !== orderNameB) {
-        return orderNameA - orderNameB;
-      }
-      if (orderNameA !== undefined && orderNameB === undefined) return -1;
-      if (orderNameA === undefined && orderNameB !== undefined) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [items, categoryOrderMap, nameOrderMap]);
+    return sortInventoryItems(items, categoryOrderMap);
+  }, [items, categoryOrderMap]);
 
   // Pagination Logic - group by ZONE(category), then split each group into chunks of ROWS_PER_PAGE
   const pages = useMemo(() => {

@@ -28,6 +28,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return response.json();
 }
 
+async function fetchZoneArchivesAPI<T>(path = '', options?: RequestInit): Promise<T> {
+  return fetchAPI<T>(`/zone-archives${path}`, options);
+}
+
 export const api = {
   // Inventory
   getInventory: async (): Promise<InventoryItem[]> => {
@@ -69,13 +73,13 @@ export const api = {
 
   getZoneArchives: async (): Promise<ZoneArchiveSummary[]> => {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') return [];
-    return fetchAPI<ZoneArchiveSummary[]>('/zone-archives');
+    return fetchZoneArchivesAPI<ZoneArchiveSummary[]>();
   },
   getZoneArchive: async (archiveId: string): Promise<ZoneArchiveData> => {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
       throw new Error('ZONE 아카이브는 Cloud 모드에서만 조회할 수 있습니다.');
     }
-    return fetchAPI<ZoneArchiveData>(`/zone-archives/${encodeURIComponent(archiveId)}`);
+    return fetchZoneArchivesAPI<ZoneArchiveData>(`/${encodeURIComponent(archiveId)}`);
   },
   archiveZone: async (data: {
     zoneId: string;
@@ -86,13 +90,13 @@ export const api = {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
       throw new Error('ZONE 아카이브는 Cloud 모드에서만 처리할 수 있습니다.');
     }
-    return fetchAPI<{
+    return fetchZoneArchivesAPI<{
       message: string;
       archiveId: string;
       itemCount: number;
       transactionCount: number;
       orphanTransactionCount: number;
-    }>('/zone-archives', {
+    }>('', {
       method: 'POST',
       body: JSON.stringify({ ...data, action: 'archive' }),
     });
@@ -105,8 +109,8 @@ export const api = {
     if (MOCKUP_MODE || STORAGE_MODE === 'Local') {
       throw new Error('ZONE 아카이브는 Cloud 모드에서만 처리할 수 있습니다.');
     }
-    return fetchAPI<{ message: string; itemCount: number; transactionCount: number }>(
-      '/zone-archives',
+    return fetchZoneArchivesAPI<{ message: string; itemCount: number; transactionCount: number }>(
+      '',
       { method: 'POST', body: JSON.stringify({ ...data, action: 'restore' }) }
     );
   },
@@ -118,12 +122,12 @@ export const api = {
       return { message: 'ok (local/mockup)', archiveCount: archives.length };
     }
     for (const archive of archives) {
-      await fetchAPI('/zone-archives', {
+      await fetchZoneArchivesAPI('', {
         method: 'POST',
         body: JSON.stringify({ action: 'importBackup', archive, ...session }),
       });
     }
-    await fetchAPI('/zone-archives', {
+    await fetchZoneArchivesAPI('', {
       method: 'POST',
       body: JSON.stringify({
         action: 'finalizeBackupImport',
